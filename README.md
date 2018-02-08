@@ -69,3 +69,7 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 #### Adhoc-signed application
 
 ![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
+
+#### Signed xip archive
+
+![grab11](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip.jpg)
