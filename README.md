@@ -34,6 +34,7 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 ![grab1](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app.jpg)
 
 #### Malware application with revoked certificate
+*Notice the bogey RTF file, which is actually an executable.*
 
 ![grab2](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware.jpg)
 
