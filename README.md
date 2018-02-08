@@ -12,7 +12,7 @@
 ### Example: Nimble Commander
 * Navigate: NC > Preferences > Tools
 * Tool title, e.g.: What's Your Sign?
-* Application: `/path/to/wys.sh`
+* Application: `/path/to/wys`
 * Parameters: `%P`
 * Startup Mode: Detached
 * Navigate: NC > Preferences > Hotkeys > All > Tools: What's Your Sign?
