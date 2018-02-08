@@ -275,7 +275,7 @@ if ! $pkgu ; then
 				xfleafcert=$(echo "$xfcsign" | grep "Authority=" | awk -F= '{print $2}' | head -1)
 				xfteamid=$(echo "$xfcsign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
 				if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
-					xfothersign="$xfothersign\n$xfleafcert ($xfteamid):\t.$execfile"
+					xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
 				fi
 			fi
 		done < <(echo "$execfiles")

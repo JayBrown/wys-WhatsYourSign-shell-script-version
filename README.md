@@ -34,10 +34,16 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ![grab1](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app.jpg)
 
-#### Malware application with revoked certificate
-*Notice the bogey RTF file, which is actually an executable part of the KeRanger ransomware scheme.*
+#### Malware application with revoked certificate (KeRanger)
+*Notice the bogey RTF file, which is actually an executable part of the ransomware scheme.*
 
 ![grab2](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware.jpg)
+
+#### Malware application with fake codesigning certificate (OSX.CreativeUpdater)
+*Compare the main executable code signature (fake) with the other signature (genuine by Mozilla).*
+*This malware is distributed as an app bundle within an app bundle.*
+
+![grab13](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware2.jpg)
 
 #### Application with cracked executables using proprietary code signatures
 
@@ -54,6 +60,10 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 #### Codesigned disk image (DMG)
 
 ![grab4](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmg.jpg)
+
+#### Disk image (DMG) signed with a fake code signature for malware distribution
+
+![grab12](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmgfake.jpg)
 
 #### Signed installer package
 
