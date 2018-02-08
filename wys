@@ -1,0 +1,202 @@
+#!/bin/bash
+
+# wms v0.5 beta
+# shell script adaption of Patrick Wardle's "What's My Sign" Finder extension (objective-see.com)
+# for use with other file managers than macOS Finder
+
+process="What's My Sign?"
+account=$(id -un)
+
+# notify function
+_notify () {
+ 	if [[ "$tn_status" == "osa" ]] ; then
+		osascript &>/dev/null << EOT
+tell application "System Events"
+	display notification "$2" with title "$process [" & "$account" & "]" subtitle "$1"
+end tell
+EOT
+	elif [[ "$tn_status" == "tn-app-new" ]] || [[ "$tn_status" == "tn-app-old" ]] ; then
+		"$tn_loc/Contents/MacOS/terminal-notifier" \
+			-title "$process [$account]" \
+			-subtitle "$1" \
+			-message "$2" \
+			-appIcon "$icon_loc" \
+			>/dev/null
+	elif [[ "$tn_status" == "tn-cli" ]] ; then
+		"$tn" \
+			-title "$process [$account]" \
+			-subtitle "$1" \
+			-message "$2" \
+			-appIcon "$icon_loc" \
+			>/dev/null
+	fi
+}
+
+# look for terminal-notifier
+tn=$(which terminal-notifier 2>/dev/null)
+if [[ "$tn" == "" ]] || [[ "$tn" == *"not found" ]] ; then
+	tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+	if [[ "$tn_loc" == "" ]] ; then
+		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+		if [[ "$tn_loc" == "" ]] ; then
+			tn_status="osa"
+		else
+			tn_status="tn-app-old"
+		fi
+	else
+		tn_status="tn-app-new"
+	fi
+else
+	tn_vers=$("$tn" -help | head -1 | awk -F'[()]' '{print $2}' | awk -F. '{print $1"."$2}')
+	if (( $(echo "$tn_vers >= 1.8" | bc -l) )) && (( $(echo "$tn_vers < 2.0" | bc -l) )) ; then
+		tn_status="tn-cli"
+	else
+		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+		if [[ "$tn_loc" == "" ]] ; then
+			tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+			if [[ "$tn_loc" == "" ]] ; then
+				tn_status="osa"
+			else
+				tn_status="tn-app-old"
+			fi
+		else
+			tn_status="tn-app-new"
+		fi
+	fi
+fi
+
+for filepath in "$@"
+do
+
+unsigned=false
+signauth=""
+bundle=false
+
+filename=$(basename "$filepath")
+if ! [[ -r "$filepath" ]] ; then
+	_notify "Not readable!" "$filename"
+	continue
+fi
+
+tmploc="/tmp/$filename.wms"
+ptmploc="/tmp/$filename.plist"
+rm -f "$tmploc" 2>/dev/null
+touch "$tmploc"
+
+echo "$filename" >> "$tmploc"
+
+echo -e "$filepath\n" >> "$tmploc"
+
+filetype=$(file "$filepath" | awk -F": " '{print $2}')
+echo -e "file type:\t$filetype" >> "$tmploc"
+
+mdlsall=$(mdls "$filepath" 2>/dev/null)
+itemtype=$(echo "$mdlsall" | awk -F"= " '/kMDItemKind/{print $2}' | sed 's/^"\(.*\)"$/\1/')
+if [[ $itemtype == "" ]] ; then
+	if [[ $filetype != "directory" ]] ; then
+		echo -e "item type:\tn/a\n" >> "$tmploc"
+	else
+		pclass=$(defaults read "$filepath/Contents/Info.plist" NSPrincipalClass 2>/dev/null)
+		if [[ $pclass == "" ]] ; then
+			ptype=$(defaults read "$filepath/Contents/Info.plist" CFBundlePackageType 2>/dev/null)
+			if [[ $ptype == "" ]] ; then
+				echo -e "item type:\t$n/a\n" >> "$tmploc"
+			else
+				echo -e "package type:\t$ptype\n" >> "$tmploc"
+			fi
+		else
+			echo -e "class:\t\t$pclass\n" >> "$tmploc"
+		fi
+	fi
+else
+	echo -e "item type:\t$itemtype\n" >> "$tmploc"
+fi
+
+csign=$(codesign -dvvvv --entitlements - "$filepath" 2>&1)
+
+if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then
+	unsigned=true
+	if [[ $filetype != "directory" ]] ; then
+		executable="$filepath"
+		executablename=$(basename "$executable")
+	else
+		executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
+		if [[ $executablename == "" ]] ; then
+			executable=""
+		else
+			executable="$filepath/Contents/MacOS/$executablename"
+		fi
+	fi
+else
+	executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
+	if [[ $executable == "" ]] && [[ $filetype == "directory" ]] ; then
+		executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
+		if [[ $executablename == "" ]] ; then
+			executable=""
+		else
+			executable="$filepath/Contents/MacOS/$executablename"
+		fi
+	else
+		executablename=$(basename "$executable")
+	fi
+fi
+
+if [[ $executable != "" ]] ; then
+	_notify "Please wait! Hashing..." "$executablename"
+	md5hash=$(md5 -q "$executable")
+	echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
+	sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
+	echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
+	sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
+	echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+else
+	echo -e "hashes:\tn/a\n" >> "$tmploc"
+fi
+
+spctlall=$(spctl -v --assess "$filepath" 2>&1)
+assess=$(echo "$spctlall" | grep ": " | awk '{print $2}')
+asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
+[[ $asource == "" ]] && asource="n/a"
+echo -e "assessment:\t$assess" >> "$tmploc"
+echo -e "source:\t\t$asource\n" >> "$tmploc"
+
+if ! $unsigned ; then
+
+	cscs=$(echo "$csign" | grep "Authority=" | awk -F= '{print $2}')
+	count=1
+	while read -r cert
+	do
+		if [[ $count == 1 ]] ; then
+			echo -e "sign auth:\t$cert" >> "$tmploc"
+		else
+			echo -e "\t\t$cert" >> "$tmploc"
+		fi
+		(( count++ ))
+	done < <(echo "$cscs")
+
+	csignc=$(echo "$csign" | LANG=C LC_CTYPE=C sed 's/^.*\<\?xml/\<\?xml/g' | grep "<.*>")
+	echo "$csignc" > "$ptmploc"
+	enthr=$(plutil -p "$ptmploc" | grep -v "^{" | grep -v "^}" | sed -e 's/^[ \t]*//' | grep -v "^$")
+	if [[ $enthr != "" ]] ; then
+		count=1
+		while read -r ent
+		do
+			if [[ $count == 1 ]] ; then
+				echo -e "\nentitlements:\t$ent" >> "$tmploc"
+			else
+				echo -e "\t\t$ent" >> "$tmploc"
+			fi
+			(( count++ ))
+		done < <(echo "$enthr")
+	else
+		echo -e "\nentitlements:\tnone" >> "$tmploc"
+	fi
+
+else
+	echo -e "sign auth:\tunsigned" >> "$tmploc"
+fi
+
+qlmanage -p "$tmploc" >/dev/null && rm -f "$tmploc" "$ptmploc" 2>/dev/null
+
+done
+exit
