@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # wms v0.5 beta
-# shell script adaption of Patrick Wardle's "What's My Sign" Finder extension (objective-see.com)
-# for use with other file managers than macOS Finder
+# shell script adaption of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
+# gain WhatsYourSign functionality in other file managers than macOS Finder
 
-process="What's My Sign?"
+process="What's Your Sign?"
 account=$(id -un)
 
 # notify function
