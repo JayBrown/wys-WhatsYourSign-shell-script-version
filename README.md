@@ -54,6 +54,6 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ![grab5](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-pkg.jpg)
 
-#### Binary
+#### Binary command line interface
 
 ![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
