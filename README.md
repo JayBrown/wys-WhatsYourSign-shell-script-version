@@ -25,7 +25,8 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-* still needs testing, especially for executable deep scan
+* still needs testing, especially for executable deep scan (any misses?)
+* should have a one-line result at the top, similar to WhatsYourSign appex
 
 ## Screengrabs
 
