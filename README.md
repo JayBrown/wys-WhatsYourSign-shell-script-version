@@ -29,7 +29,7 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ## Screengrabs
 
-#### Application
+#### Application signed with Developer ID
 
 ![grab1](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app.jpg)
 
@@ -42,9 +42,13 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ![grab7](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked.jpg)
 
-#### Application with entitlements
+#### Application with entitlements (Apple System)
 
 ![grab3](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-entitlements.jpg)
+
+#### Application with entitlements (Mac App Store)
+
+![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
 
 #### Disk image (DMG)
 
