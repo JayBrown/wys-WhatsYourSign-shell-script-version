@@ -50,15 +50,15 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
 
-#### Disk image (DMG)
+#### Codesigned disk image (DMG)
 
 ![grab4](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmg.jpg)
 
-#### Installer package
+#### Signed installer package
 
 ![grab5](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-pkg.jpg)
 
-#### Binary command line interface
+#### Codesigned binary command line interface
 
 ![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
 
