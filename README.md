@@ -61,3 +61,7 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 #### Unsigned application
 
 ![grab8](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-unsigned.jpg)
+
+#### Adhoc-signed application
+
+![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
