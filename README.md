@@ -22,3 +22,7 @@
 
 ## Beta status
 Still needs support for pkg/mpkg and xip. Already works on application bundles, DMGs, binaries etc.
+
+## Screengrabs
+
+![grab1](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app.jpg)
