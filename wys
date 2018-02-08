@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.9 beta
+# wys v0.95 beta
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
 
@@ -207,17 +207,28 @@ if ! $pkgu ; then
 
 	if ! $unsigned ; then
 
-		cscs=$(echo "$csign" | grep "Authority=" | awk -F= '{print $2}')
-		count=1
-		while read -r cert
-		do
-			if [[ $count == 1 ]] ; then
-				echo -e "sign auth:\t$cert" >> "$tmploc"
-			else
-				echo -e "\t\t$cert" >> "$tmploc"
-			fi
-			(( count++ ))
-		done < <(echo "$cscs")
+		if [[ $(echo "$csign" | grep "Signature=") != "" ]] ; then
+			signature=$(echo "$csign" | grep "^Signature=" | awk -F= '{print $2}')
+			[[ $signature == "" ]] && signature="n/a"
+			identifier=$(echo "$csign" | grep "^Identifier=" | awk -F= '{print $2}')
+			[[ $identifier == "" ]] && identifier="n/a"
+			teamid=$(echo "$csign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
+			echo -e "sign:\t\t$signature ($identifier)" >> "$tmploc"
+		else
+			cscs=$(echo "$csign" | grep "Authority=" | awk -F= '{print $2}')
+			count=1
+			while read -r cert
+			do
+				if [[ $count == 1 ]] ; then
+					echo -e "sign auth:\t$cert" >> "$tmploc"
+					leafcert="$cert"
+				else
+					echo -e "\t\t$cert" >> "$tmploc"
+				fi
+				(( count++ ))
+			done < <(echo "$cscs")
+			teamid=$(echo "$csign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
+		fi
 
 		timestamp=$(echo "$csign" | grep "Timestamp=" | awk -F= '{print $2}')
 		[[ $timestamp == "" ]] && timestamp=$(echo "$csign" | grep "Signed Time=" | awk -F= '{print $2}')
@@ -244,6 +255,40 @@ if ! $pkgu ; then
 
 	else
 		echo -e "sign auth:\tunsigned" >> "$tmploc"
+	fi
+
+	if [[ $filetype == "directory" ]] && [[ $executable != "" ]] ; then
+		xfunsigned="unsigned files with executable permissions:"
+		xfothersign="executable files with other code signatures:"
+		cd "$filepath"
+		execfiles=$(find -L . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
+		cd /
+		while read -r execfile
+		do
+			execfilepath="$filepath$execfile"
+			execinfo=$(file "$execfilepath" | awk -F": " '{print $2}')
+			[[ $(echo "$execinfo" | grep 'executable\|Mach-O\|script\|i386\|x86_64\|shell') == "" ]] && continue
+			xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
+			if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
+				xfunsigned="$xfunsigned\n.$execfile"
+			else
+				xfleafcert=$(echo "$xfcsign" | grep "Authority=" | awk -F= '{print $2}' | head -1)
+				xfteamid=$(echo "$xfcsign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
+				if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
+					xfothersign="$xfothersign\n$xfleafcert ($xfteamid):\t.$execfile"
+				fi
+			fi
+		done < <(echo "$execfiles")
+		if [[ $(echo -e "$xfothersign" | wc -l | xargs) != "1" ]] ; then
+			echo -e "\n$xfothersign" >> "$tmploc"
+		else
+			echo -e "\n$xfothersign\nnone" >> "$tmploc"
+		fi
+		if [[ $(echo -e "$xfunsigned" | wc -l | xargs) != "1" ]] ; then
+			echo -e "\n$xfunsigned" >> "$tmploc"
+		else
+			echo -e "\n$xfunsigned\nnone" >> "$tmploc"
+		fi
 	fi
 
 else
