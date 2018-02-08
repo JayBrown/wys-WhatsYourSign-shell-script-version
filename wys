@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # wys v0.5 beta
-# shell script adaption of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
+# shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
 
 process="What's Your Sign?"
