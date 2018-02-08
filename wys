@@ -183,7 +183,7 @@ if ! $pkgu ; then
 		if [[ "$mibsize" == "0.00" ]] ; then
 			mibsize="< 0.01"
 		fi
-		[ $bsize -gt 10000000 ] && _notify "Please wait! Hashing..." "$executablename"
+		[ $bsize -gt 50000000 ] && _notify "Please wait! Hashing..." "$executablename"
 		md5hash=$(md5 -q "$executable")
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
@@ -272,7 +272,7 @@ else
 		done < <(echo "$cusers")
 	fi
 
-	[ $bsize -gt 10000000 ] && _notify "Please wait! Hashing..." "$filename"
+	[ $bsize -gt 50000000 ] && _notify "Please wait! Hashing..." "$filename"
 	md5hash=$(md5 -q "$filepath")
 	echo -e "\nhashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 	sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
