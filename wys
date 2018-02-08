@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wms v0.5 beta
+# wys v0.5 beta
 # shell script adaption of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
 
@@ -78,7 +78,7 @@ if ! [[ -r "$filepath" ]] ; then
 	continue
 fi
 
-tmploc="/tmp/$filename.wms"
+tmploc="/tmp/$filename.wys"
 ptmploc="/tmp/$filename.plist"
 rm -f "$tmploc" 2>/dev/null
 touch "$tmploc"
