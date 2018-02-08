@@ -6,6 +6,8 @@
 
 **Shell script version of Patrick Wardle's awesome [WhatsYourSign](https://github.com/objective-see/WhatsYourSign)**
 
+Works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG), packages (e.g. pkg), and archives (xar, xip).
+
 ## Installation
 **Note:** If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
 
@@ -21,7 +23,7 @@
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-Still needs support for pkg/mpkg and xip. Already works on application bundles, DMGs, binaries etc.
+Still needs testing.
 
 ## Screengrabs
 
