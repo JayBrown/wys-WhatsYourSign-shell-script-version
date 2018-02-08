@@ -23,7 +23,8 @@ Works with bundles (e.g. applications, extensions etc.), binaries/executables, d
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-Still needs testing.
+* still needs testing
+* maybe add deep bundle scan for possible hidden bogeys (?)
 
 ## Screengrabs
 
