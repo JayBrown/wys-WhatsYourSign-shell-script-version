@@ -36,7 +36,6 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 ## Beta status
 * still needs testing, especially for executable deep scan (any misses? too much?)
 * find revocation list to manually check certificates & not rely on spctl
-* recheck spctl commands, maybe add for installer packages
 * might need a one-line result at the top, similar to WhatsYourSign appex
 
 ## Screengrabs
