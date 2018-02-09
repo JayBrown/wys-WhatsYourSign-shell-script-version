@@ -8,8 +8,8 @@ process="What's Your Sign?"
 account=$(id -un)
 
 # round function
-_round() {
-	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | /usr/bin/bc))
+_round () {
+	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
 }
 
 
