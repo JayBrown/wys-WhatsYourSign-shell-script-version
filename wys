@@ -1,8 +1,17 @@
 #!/bin/bash
 
-# wys v0.95.1 beta
+# wys v0.96 beta
+#
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
+#
+# additional functionality:
+# code signature timestamp
+# spctl assessment
+# xar toc dump for package timestamp & creator
+# file size (B, MB, MiB)
+# hash comparison with clipboard hash
+# deep bundle scan for executable files
 
 process="What's Your Sign?"
 account=$(id -un)
@@ -13,6 +22,62 @@ _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
 }
 
+# clipboard checksum parsing
+_cscn () {
+	case $1 in
+		( *[!0-9A-Fa-f]* | "" ) echo "none" ;;
+		( * )
+			case ${#1} in
+				( 32 ) echo "md" ;;
+				( 40 ) echo "1" ;;
+				( 56 ) echo "224" ;;
+				( 64 ) echo "256" ;;
+				( 96 ) echo "384" ;;
+				( 128 ) echo "512" ;;
+				( * ) echo "none" ;;
+			esac
+	esac
+}
+
+# checksum comparison
+_cscomp () {
+	compresult=false
+	[ $bsize -gt 50000000 ] && _notify "⚠️ Comparing hashes..." "$filename"
+	if [[ $cstype == "md" ]] ; then
+		mdhash=$(md5 -q "$filepath")
+		if [[ $mdhash == $clipsum ]] ; then
+			echo -e "clipped hash:\tmd5:\t$mdhash" >> "$tmploc"
+			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
+			compresult=true
+			_notify "✅ Hash verified" "md5"
+		else
+			echo -e "clipped hash:\tmd5:\t$clipsum" >> "$tmploc"
+			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
+			_notify "❌ Hash mismatch!" "md5: error"
+		fi
+	else
+		shahash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+		if [[ $shahash == $clipsum ]] ; then
+			echo -e "clipped hash:\tsha$cstype:\t$shahash" >> "$tmploc"
+			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
+			compresult=true
+			_notify "✅ Hash verified" "sha$cstype"
+		else
+			echo -e "clipped hash:\tsha$cstype:\t$clipsum" >> "$tmploc"
+			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
+			_notify "❌ Hash mismatch!" "sha$cstype: error"
+		fi
+	fi
+	if ! $compresult ; then
+		md5hash=$(md5 -q "$filepath")
+		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
+		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
+		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
+		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+	fi
+	echo "" | pbcopy
+}
 
 # notify function
 _notify () {
@@ -76,10 +141,11 @@ for filepath in "$@"
 do
 
 pkgu=false
+clipped=false
 
 filename=$(basename "$filepath")
 if ! [[ -r "$filepath" ]] ; then
-	_notify "Not readable!" "$filename"
+	_notify "❌ Not readable!" "$filename"
 	continue
 fi
 
@@ -98,6 +164,16 @@ shortpath="${filepath/#$HOME/~}"
 echo -e "$shortpath\n" >> "$tmploc"
 
 filetype=$(file "$filepath" | awk -F": " '{print $2}')
+if [[ $filetype != "directory" ]] ; then
+	clipsum=$(pbpaste | xargs 2>/dev/null)
+	cstype=$(_cscn "$clipsum")
+	if [[ $cstype != "none" ]] ; then
+		clipped=true
+	else
+		cstype=""
+		clipsum=""
+	fi
+fi
 
 if [[ $filetype != "directory" ]] ; then
 	bsize=$(stat -f%z "$filepath")
@@ -147,49 +223,58 @@ if ! $pkgu ; then
 	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then
 		unsigned=true
 		if [[ $filetype != "directory" ]] ; then
-			executable="$filepath"
-			executablename=$(basename "$executable")
+			executable=""
+			executablename=""
 		else
 			executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
 			if [[ $executablename == "" ]] ; then
-				executable=""
+				executable="none"
 			else
 				executable="$filepath/Contents/MacOS/$executablename"
 			fi
 		fi
 	else
-		executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
-		if [[ $executable == "" ]] && [[ $filetype == "directory" ]] ; then
-			executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
-			if [[ $executablename == "" ]] ; then
-				executable=""
+		if [[ $filetype == "directory" ]] ; then
+			executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
+			if [[ $executable == "" ]] && [[ $filetype == "directory" ]] ; then
+				executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
+				if [[ $executablename == "" ]] ; then
+					executable="none"
+				else
+					executable="$filepath/Contents/MacOS/$executablename"
+				fi
 			else
-				executable="$filepath/Contents/MacOS/$executablename"
+				executablename=$(basename "$executable")
 			fi
 		else
-			executablename=$(basename "$executable")
+			executable=""
+			executablename=""
 		fi
 	fi
 
-	if [[ $executable != "" ]] ; then
-		bsize=$(stat -f%z "$executable")
-		mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
-		mbsize=$(_round "$mbsizeraw" 2)
-		if [[ "$mbsize" == "0.00" ]] ; then
-			mbsize="< 0.01"
+	if [[ $executable != "none" ]] ; then
+		if [[ $executable != "" ]] ; then
+			bsize=$(stat -f%z "$executable")
+			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$executablename (executable)"
+			md5hash=$(md5 -q "$executable")
+			echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
+			sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
+			echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
+			sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
+			echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+		else
+			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
+			if ! $clipped ; then
+				md5hash=$(md5 -q "$filepath")
+				echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
+				sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
+				echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
+				sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+				echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+			else
+				_cscomp
+			fi
 		fi
-		mibsizeraw=$(bc -l <<< "scale=6; $bsize/1048576")
-		mibsize=$(_round "$mibsizeraw" 2)
-		if [[ "$mibsize" == "0.00" ]] ; then
-			mibsize="< 0.01"
-		fi
-		[ $bsize -gt 50000000 ] && _notify "Please wait! Hashing..." "$executablename"
-		md5hash=$(md5 -q "$executable")
-		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-		sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
-		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-		sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
-		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
 	else
 		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
 	fi
@@ -267,7 +352,7 @@ if ! $pkgu ; then
 		do
 			execfilepath="$filepath$execfile"
 			execinfo=$(file "$execfilepath" | awk -F": " '{print $2}')
-			[[ $(echo "$execinfo" | grep 'executable\|Mach-O\|script\|i386\|x86_64\|shell') == "" ]] && continue
+			[[ $(echo "$execinfo" | grep 'executable\|Mach-O\|script\|i386\|x86_64\|library|shell') == "" ]] && continue
 			xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
 			if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
 				xfunsigned="$xfunsigned\n.$execfile"
@@ -317,13 +402,17 @@ else
 		done < <(echo "$cusers")
 	fi
 
-	[ $bsize -gt 50000000 ] && _notify "Please wait! Hashing..." "$filename"
-	md5hash=$(md5 -q "$filepath")
-	echo -e "\nhashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-	sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
-	echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-	sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
-	echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+	if ! $clipped ; then
+		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename (file)"
+		md5hash=$(md5 -q "$filepath")
+		echo -e "\nhashes:\t\tmd5:\t$md5hash" >> "$tmploc"
+		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
+		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
+		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+	else
+		_cscomp
+	fi
 
 	pkgsig=$(echo "$pkginfo" | sed -n -e '/Certificate Chain:/,$p' | grep "^.*[0-9]\." | awk -F. '{print substr($0, index($0,$2))}' | sed -e 's/^[ \t]*//' | grep -v "^$")
 	if [[ $pkgsig == "" ]] ; then

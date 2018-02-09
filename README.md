@@ -8,10 +8,19 @@
 
 Works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG), packages (e.g. pkg), and archives (xar, xip).
 
-In addition to the default WhatsYourSign functionality, **wys** also performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find executable files that are unsigned, or that are codesigned differently from the main executable.
+In addition to the default WhatsYourSign functionality, **wys** also:
+
+* performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find:
+* * executable files that are unsigned, or
+* * that are codesigned differently from the main executable
+* prints the file size (B, MB, MiB)
+* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file
+* prints spctl assessments
+* prints the codesigning timestamp
+* prints the signing timestamp and creator from a package's toc
 
 ## Installation
-**Note:** If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
+**Note:** If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the additional functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
 
 ### Example: Nimble Commander
 * Navigate: NC > Preferences > Tools
@@ -25,8 +34,8 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-* still needs testing, especially for executable deep scan (any misses?)
-* should have a one-line result at the top, similar to WhatsYourSign appex
+* still needs testing, especially for executable deep scan (any misses? problem: shell scripts as simple ASCII text)
+* might need a one-line result at the top, similar to WhatsYourSign appex
 
 ## Screengrabs
 
