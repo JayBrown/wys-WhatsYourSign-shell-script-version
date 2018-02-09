@@ -75,8 +75,6 @@ fi
 for filepath in "$@"
 do
 
-unsigned=false
-signauth=""
 pkgu=false
 
 filename=$(basename "$filepath")
@@ -90,8 +88,9 @@ extension="${filename##*.}"
 
 tmploc="/tmp/$filename.wys"
 ptmploc="/tmp/$filename.plist"
-rm -f "$tmploc" 2>/dev/null
+rm -f "$tmploc" "$ptmploc" 2>/dev/null
 touch "$tmploc"
+touch "$ptmploc"
 
 echo "$filename" >> "$tmploc"
 
@@ -140,6 +139,8 @@ else
 fi
 
 if ! $pkgu ; then
+
+	unsigned=false
 
 	csign=$(codesign -dvvvv --entitlements - "$filepath" 2>&1)
 
@@ -353,4 +354,5 @@ fi
 qlmanage -p "$tmploc" >/dev/null && rm -f "$tmploc" "$ptmploc" 2>/dev/null
 
 done
+
 exit
