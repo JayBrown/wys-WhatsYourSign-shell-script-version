@@ -11,8 +11,8 @@ Works with bundles (e.g. applications, extensions etc.), binaries/executables, d
 In addition to the default WhatsYourSign functionality, **wys** also:
 
 * performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find:
-* * executable files that are unsigned, or
-* * that are codesigned differently from the main executable
+  * executable files that are unsigned, or
+  * that are codesigned differently from the main executable
 * prints the file size (B, MB, MiB)
 * performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file
 * prints spctl assessments
