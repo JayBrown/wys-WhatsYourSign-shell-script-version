@@ -57,6 +57,18 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
 
+#### Adhoc-signed application
+
+![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
+
+#### Unsigned application
+
+![grab8](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-unsigned.jpg)
+
+#### Codesigned binary command line interface
+
+![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
+
 #### Codesigned disk image (DMG)
 
 ![grab4](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmg.jpg)
@@ -69,18 +81,10 @@ In addition to the default WhatsYourSign functionality, **wys** also performs a 
 
 ![grab5](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-pkg.jpg)
 
-#### Codesigned binary command line interface
-
-![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
-
-#### Unsigned application
-
-![grab8](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-unsigned.jpg)
-
-#### Adhoc-signed application
-
-![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
-
-#### Signed xip archive
+#### xip archive signed with Developer ID
 
 ![grab11](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip.jpg)
+
+#### xip archive signed with locally trusted key
+
+![grab14](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip-user.jpg)
