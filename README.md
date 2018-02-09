@@ -35,7 +35,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 
 ## Beta status
 * still needs testing, especially for executable deep scan (any misses? too much?)
-* find revocation list to manually check certificates & not rely on spctl
+* research timestamp vs. signing time
 * might need a one-line result at the top, similar to WhatsYourSign appex
 
 ## Screengrabs
@@ -54,11 +54,9 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 
 *Notice the bogey `script` file, which starts the download of the cryptominer malware.*
 
+*Please note that the security assessment using `spctl` can still accept a codesigning certificate, while the more up-to-date verification with `security` already shows it as *revoked*.*
+
 ![grab13](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware2.jpg)
-
-#### Application with cracked executables using proprietary code signatures
-
-![grab7](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked.jpg)
 
 #### Application with entitlements (Apple System)
 
@@ -99,3 +97,12 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 #### xip archive signed with locally trusted key
 
 ![grab14](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip-user.jpg)
+
+#### Application with cracked executables using proprietary code signatures
+
+![grab7](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked.jpg)
+
+#### Auxiliary list with unsigned executable files
+*Note that some developers erroneously set the executable bits on files that do not need it; *wys* scans will take longer in these cases.*
+
+![grab15](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked-aux.jpg)

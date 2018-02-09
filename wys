@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.97 beta
+# wys v0.98 beta
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -12,6 +12,8 @@
 # file size (B, MB, MiB)
 # hash comparison with clipboard hash
 # deep bundle scan for executable files
+
+shopt -s extglob
 
 process="What's Your Sign?"
 account=$(id -un)
@@ -142,6 +144,8 @@ do
 
 pkgu=false
 clipped=false
+smany=false
+umany=false
 
 filename=$(basename "$filepath")
 if ! [[ -r "$filepath" ]] ; then
@@ -154,9 +158,13 @@ extension="${filename##*.}"
 
 tmploc="/tmp/$filename.wys"
 ptmploc="/tmp/$filename.plist"
-rm -f "$tmploc" "$ptmploc" 2>/dev/null
+stmploc="/tmp/$filename-os.wys"
+utmploc="/tmp/$filename-us.wys"
+rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
 touch "$tmploc"
 touch "$ptmploc"
+touch "$stmploc"
+touch "$utmploc"
 
 echo "$filename" >> "$tmploc"
 
@@ -173,9 +181,7 @@ if [[ $filetype != "directory" ]] ; then
 		cstype=""
 		clipsum=""
 	fi
-fi
 
-if [[ $filetype != "directory" ]] ; then
 	bsize=$(stat -f%z "$filepath")
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
@@ -218,7 +224,23 @@ if ! $pkgu ; then
 
 	unsigned=false
 
-	csign=$(codesign -dvvvv --entitlements - "$filepath" 2>&1)
+	cd /tmp
+	csign=$(codesign -dvvvv --entitlements - --extract-certificates "$filepath" 2>&1)
+
+	if [[ -f codesign0 ]] ; then
+		certsecall=$(security verify-cert -c codesign0 2>&1)
+		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
+			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
+		elif [[ $certsecall == "...certificate verification successful." ]] ; then
+			certsec="successful"
+		else
+			certsec="$certsecall"
+		fi
+	else
+		certsec="n/a"
+	fi
+	cd /
+	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 
 	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then
 		unsigned=true
@@ -279,6 +301,8 @@ if ! $pkgu ; then
 		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
 	fi
 
+	echo -e "verification:\t$certsec\n" >> "$tmploc"
+
 	spctlall=$(spctl -v --assess "$filepath" 2>&1)
 	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
 	echo -e "assessment:\t$assess" >> "$tmploc"
@@ -321,7 +345,7 @@ if ! $pkgu ; then
 		echo -e "\ntimestamp:\t$timestamp\n" >> "$tmploc"
 
 		csignc=$(echo "$csign" | LANG=C LC_CTYPE=C sed 's/^.*\<\?xml/\<\?xml/g' | grep "<.*>")
-		echo "$csignc" > "$ptmploc"
+		echo "$csignc" >> "$ptmploc"
 		enthr=$(plutil -p "$ptmploc" | grep -v "^{" | grep -v "^}" | sed -e 's/^[ \t]*//' | grep -v "^$")
 		if [[ $enthr != "" ]] ; then
 			count=1
@@ -351,8 +375,6 @@ if ! $pkgu ; then
 		while read -r execfile
 		do
 			execfilepath="$filepath$execfile"
-			execinfo=$(file "$execfilepath" | awk -F": " '{print $2}')
-			[[ $(echo "$execinfo" | grep 'executable\|Mach-O\|script\|i386\|x86_64\|text\|library\|shell') == "" ]] && continue
 			xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
 			if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
 				xfunsigned="$xfunsigned\n.$execfile"
@@ -364,13 +386,29 @@ if ! $pkgu ; then
 				fi
 			fi
 		done < <(echo "$execfiles")
-		if [[ $(echo -e "$xfothersign" | wc -l | xargs) != "1" ]] ; then
-			echo -e "\n$xfothersign" >> "$tmploc"
+
+		snumber=$(echo -e "$xfothersign" | wc -l | xargs)
+		if [[ $snumber != "1" ]] ; then
+			if [ $snumber -gt 20 ] ; then
+				smany=true
+				echo -e "\nexecutable files with other code signatures:\n[see auxiliary list]" >> "$tmploc"
+				echo -e "$filename\n$filepath\n\n$xfothersign" >> "$stmploc"
+			else
+				echo -e "\n$xfothersign" >> "$tmploc"
+			fi
 		else
 			echo -e "\n$xfothersign\nnone" >> "$tmploc"
 		fi
-		if [[ $(echo -e "$xfunsigned" | wc -l | xargs) != "1" ]] ; then
-			echo -e "\n$xfunsigned" >> "$tmploc"
+
+		unumber=$(echo -e "$xfunsigned" | wc -l | xargs)
+		if [[ $unumber != "1" ]] ; then
+			if [ $unumber -gt 10 ] ; then
+				umany=true
+				echo -e "\nunsigned files with executable permissions:\n[see auxiliary list]" >> "$tmploc"
+				echo -e "$filename\n$filepath\n\n$xfunsigned" >> "$utmploc"
+			else
+				echo -e "\n$xfunsigned" >> "$tmploc"
+			fi
 		else
 			echo -e "\n$xfunsigned\nnone" >> "$tmploc"
 		fi
@@ -449,7 +487,17 @@ else
 
 fi
 
-qlmanage -p "$tmploc" >/dev/null && rm -f "$tmploc" "$ptmploc" 2>/dev/null
+qlmanage -p "$tmploc" >/dev/null &
+if $smany ; then
+	qlmanage -p "$stmploc" >/dev/null &
+fi
+if $umany ; then
+	qlmanage -p "$utmploc" >/dev/null &
+fi
+
+wait
+
+rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
 
 done
 
