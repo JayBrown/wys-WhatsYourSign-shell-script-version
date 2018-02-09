@@ -78,7 +78,6 @@ do
 unsigned=false
 signauth=""
 pkgu=false
-warn=false
 
 filename=$(basename "$filepath")
 if ! [[ -r "$filepath" ]] ; then
@@ -96,7 +95,6 @@ touch "$tmploc"
 
 echo "$filename" >> "$tmploc"
 
-homedir="$HOME"
 shortpath="${filepath/#$HOME/~}"
 echo -e "$shortpath\n" >> "$tmploc"
 
