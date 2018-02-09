@@ -82,7 +82,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 
 ![grab4](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmg.jpg)
 
-#### Disk image (DMG) signed with a fake code signature for malware distribution
+#### Malware disk image (DMG) with hash mismatch and signed with a fake code signature
 
 ![grab12](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmgfake.jpg)
 
@@ -90,7 +90,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 
 ![grab5](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-pkg.jpg)
 
-#### xip archive signed with Developer ID
+#### xip archive with verified hash and signed with Developer ID
 
 ![grab11](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip.jpg)
 

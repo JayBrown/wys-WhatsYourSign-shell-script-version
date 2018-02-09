@@ -42,7 +42,7 @@ _cscn () {
 # checksum comparison
 _cscomp () {
 	compresult=false
-	[ $bsize -gt 50000000 ] && _notify "⚠️ Comparing hashes..." "$filename"
+	[ $bsize -gt 100000000 ] && _notify "⚠️ Comparing hashes..." "$filename"
 	if [[ $cstype == "md" ]] ; then
 		mdhash=$(md5 -q "$filepath")
 		if [[ $mdhash == $clipsum ]] ; then
@@ -53,7 +53,7 @@ _cscomp () {
 		else
 			echo -e "clipped hash:\tmd5:\t$clipsum" >> "$tmploc"
 			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
-			_notify "❌ Hash mismatch!" "md5: error"
+			_notify "❌ Hash mismatch!" "md5: rehashing..."
 		fi
 	else
 		shahash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
@@ -65,7 +65,7 @@ _cscomp () {
 		else
 			echo -e "clipped hash:\tsha$cstype:\t$clipsum" >> "$tmploc"
 			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
-			_notify "❌ Hash mismatch!" "sha$cstype: error"
+			_notify "❌ Hash mismatch!" "sha$cstype: rehashing..."
 		fi
 	fi
 	if ! $compresult ; then
@@ -263,8 +263,8 @@ if ! $pkgu ; then
 			sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
 			echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
 		else
-			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 			if ! $clipped ; then
+				[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 				md5hash=$(md5 -q "$filepath")
 				echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 				sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
@@ -403,7 +403,7 @@ else
 	fi
 
 	if ! $clipped ; then
-		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename (file)"
+		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 		md5hash=$(md5 -q "$filepath")
 		echo -e "\nhashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
@@ -411,6 +411,7 @@ else
 		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
 	else
+		echo "" >> "$tmploc"
 		_cscomp
 	fi
 
