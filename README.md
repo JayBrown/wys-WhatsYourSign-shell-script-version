@@ -34,9 +34,9 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-* still needs testing, especially for executable deep scan (any misses? too much?)
-* research timestamp vs. signing time
-* might need a one-line result at the top, similar to WhatsYourSign appex
+* still needs testing, maybe some tweaking for the deep bundle scan
+* research (verified) timestamp vs. signing time
+* might need a one-line result at the top, similar to WhatsYourSign appex (?)
 
 ## Screengrabs
 

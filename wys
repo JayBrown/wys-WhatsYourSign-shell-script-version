@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.98 beta
+# wys v0.98.1 beta
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -487,14 +487,13 @@ else
 
 fi
 
-qlmanage -p "$tmploc" >/dev/null &
-if $smany ; then
-	qlmanage -p "$stmploc" >/dev/null &
-fi
 if $umany ; then
 	qlmanage -p "$utmploc" >/dev/null &
 fi
-
+if $smany ; then
+	qlmanage -p "$stmploc" >/dev/null &
+fi
+qlmanage -p "$tmploc" >/dev/null &
 wait
 
 rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
