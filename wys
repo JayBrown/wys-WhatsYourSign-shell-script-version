@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.96.1 beta
+# wys v0.97 beta
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -285,7 +285,7 @@ if ! $pkgu ; then
 
 	asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
 	if [[ $asource == "" ]] ; then
-		asource=$(spctl -a -t open --context context:primary-signature -v "$filepath" 2>&1 | awk -F"=" '/source=/{print $2}')
+		asource=$(spctl -a -t execute --context context:primary-signature -v "$filepath" 2>&1 | awk -F"=" '/source=/{print $2}')
 		[[ $asource == "" ]] && asource="n/a"
 	fi
 	echo -e "source:\t\t$asource\n" >> "$tmploc"
@@ -414,6 +414,14 @@ else
 		echo "" >> "$tmploc"
 		_cscomp
 	fi
+
+	spctlall=$(spctl -a -t install --context context:primary-signature -v "$filepath" 2>&1)
+	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
+	echo -e "assessment:\t$assess" >> "$tmploc"
+
+	asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
+	[[ $asource == "" ]] && asource="n/a"
+	echo -e "source:\t\t$asource\n" >> "$tmploc"
 
 	pkgsig=$(echo "$pkginfo" | sed -n -e '/Certificate Chain:/,$p' | grep "^.*[0-9]\." | awk -F. '{print substr($0, index($0,$2))}' | sed -e 's/^[ \t]*//' | grep -v "^$")
 	if [[ $pkgsig == "" ]] ; then
