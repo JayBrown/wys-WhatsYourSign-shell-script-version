@@ -1,11 +1,12 @@
 #!/bin/bash
 
-# wys v0.95 beta
+# wys v0.95.1 beta
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
 
 process="What's Your Sign?"
 account=$(id -un)
+icon_loc="/System/Library/PreferencePanes/Security.prefPane/Contents/Resources/FileVault.icns"
 
 # round function
 _round () {
