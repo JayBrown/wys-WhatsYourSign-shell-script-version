@@ -34,7 +34,9 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-* still needs testing, especially for executable deep scan (any misses? problem: shell scripts as simple ASCII text)
+* still needs testing, especially for executable deep scan (any misses? too much?)
+* find revocation list to manually check certificates & not rely on spctl
+* recheck spctl commands, maybe add for installer packages
 * might need a one-line result at the top, similar to WhatsYourSign appex
 
 ## Screengrabs
@@ -49,8 +51,9 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 ![grab2](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware.jpg)
 
 #### Malware application with fake codesigning certificate (OSX.CreativeUpdater)
-*Compare the main executable code signature (fake) with the other signature (genuine by Mozilla).*
-*This malware is distributed as an app bundle within an app bundle.*
+*Compare the main executable code signature (fake) with the other signature (genuine by Mozilla). This malware is distributed as an app bundle within an app bundle.*
+
+*Notice the bogey `script` file, which starts the download of the cryptominer malware.*
 
 ![grab13](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware2.jpg)
 

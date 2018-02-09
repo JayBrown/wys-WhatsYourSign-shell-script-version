@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.96 beta
+# wys v0.96.1 beta
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -352,7 +352,7 @@ if ! $pkgu ; then
 		do
 			execfilepath="$filepath$execfile"
 			execinfo=$(file "$execfilepath" | awk -F": " '{print $2}')
-			[[ $(echo "$execinfo" | grep 'executable\|Mach-O\|script\|i386\|x86_64\|library|shell') == "" ]] && continue
+			[[ $(echo "$execinfo" | grep 'executable\|Mach-O\|script\|i386\|x86_64\|text\|library\|shell') == "" ]] && continue
 			xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
 			if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
 				xfunsigned="$xfunsigned\n.$execfile"
