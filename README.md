@@ -6,18 +6,19 @@
 
 **Shell script version of Patrick Wardle's awesome [WhatsYourSign](https://github.com/objective-see/WhatsYourSign)**
 
-Works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG), packages (e.g. pkg), and archives (xar, xip).
+Works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG), packages (e.g. pkg), and archives (xip, xar).
 
 In addition to the default WhatsYourSign functionality, **wys** also:
 
+* prints the file size (B, MB, MiB)
+* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files)
+* verifies codesigning certificates against the current revocation list using `security`
+* prints `spctl` assessment (packages: `install`; other: `execute`)
+* prints the codesigning timestamp or signing time (depending on the signature)
+* prints the signing timestamp and creator from a package's toc
 * performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find:
   * executable files that are unsigned, or
   * that are codesigned differently from the main executable
-* prints the file size (B, MB, MiB)
-* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file
-* prints spctl assessments
-* prints the codesigning timestamp
-* prints the signing timestamp and creator from a package's toc
 
 ## Installation
 **Note:** If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the additional functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
@@ -34,7 +35,8 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 * Change keyboard shortcut to resolve any potential conflicts
 
 ## Beta status
-* still needs testing, maybe some tweaking for the deep bundle scan
+* still needs general testing, maybe some tweaking for the deep bundle scan
+* needs testing for sparsebundles
 * research (verified) timestamp vs. signing time
 * might need a one-line result at the top, similar to WhatsYourSign appex (?)
 
@@ -50,15 +52,17 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 ![grab2](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware.jpg)
 
 #### Malware application with fake codesigning certificate (OSX.CreativeUpdater)
-*Compare the main executable code signature (fake) with the other signature (genuine by Mozilla). This malware is distributed as an app bundle within an app bundle.*
+*Compare the main executable code signature (added by attacker) with the other signature (original by Mozilla), i.e. this is a legit app bundle within a malware app bundle to fool the user.*
 
 *Notice the bogey `script` file, which starts the download of the cryptominer malware.*
 
-*Please note that the security assessment using `spctl` can still accept a codesigning certificate, while the more up-to-date verification with `security` already shows it as *revoked*.*
+*Please note that the security assessment using `spctl` can still accept a codesigning certificate, while the more up-to-date verification with `security` already shows it as revoked.*
 
 ![grab13](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware2.jpg)
 
 #### Application with entitlements (Apple System)
+
+*Notice that there is no CRL (certificate revocation list) for Apple System signatures (leaf certificate: "Software Signing"), so let's hope none of Apple's private codesigning keys ever get leaked.*
 
 ![grab3](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-entitlements.jpg)
 
@@ -103,6 +107,6 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 ![grab7](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked.jpg)
 
 #### Auxiliary list with unsigned executable files
-*Note that some developers erroneously set the executable bits on files that do not need it; *wys* scans will take longer in these cases.*
+*Note that some developers erroneously set the executable bits on files that do not need it; this really messes things up, and *wys* scans will take longer in these cases.*
 
 ![grab15](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked-aux.jpg)
