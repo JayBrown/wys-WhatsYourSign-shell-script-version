@@ -13,7 +13,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 * prints the file size (B, MB, MiB; only for single files),
 * performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files),
 
-![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
+   ![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
 
 * verifies codesigning certificates against the current revocation list using `security`—
   * *Note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
