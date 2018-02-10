@@ -41,7 +41,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 ## Beta status
 * still needs general testing, maybe some tweaking for the deep bundle scan
 * needs testing for sparsebundles
-* research (verified) timestamp vs. signing time
+* find way to compare signing time with other timestamps
 * might need a one-line result at the top, similar to WhatsYourSign appex (?)
 
 ## Screengrabs
@@ -74,6 +74,10 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
 
+#### Application with untrusted third-party code signature
+
+![grab17](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-3rdparty.jpg)
+
 #### Adhoc-signed application
 
 ![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
@@ -82,7 +86,11 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ![grab8](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-unsigned.jpg)
 
-#### Codesigned binary command line interface
+#### Kernel extension
+
+![grab16](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-kext.jpg)
+
+#### Codesigned command line interface
 
 ![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
 
