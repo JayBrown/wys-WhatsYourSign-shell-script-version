@@ -10,13 +10,14 @@ Works with bundles (e.g. applications, extensions etc.), binaries/executables, d
 
 In addition to the default WhatsYourSign functionality, **wys** also:
 
-* prints the file size (B, MB, MiB; only for single files);
-* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files);
-* verifies codesigning certificates against the current revocation list using `security`;
-  * *Note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates
-* prints `spctl` assessment (packages: `install`; other: `execute`);
-* prints the codesigning timestamp or signing time (depending on the signature);
-* prints the signing timestamp and creator from a package's TOC;
+* prints the file size (B, MB, MiB; only for single files),
+* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files),
+![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
+* verifies codesigning certificates against the current revocation list using `security`—
+  * *Note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
+* prints `spctl` assessment (packages: `install`; other: `execute`),
+* prints the codesigning timestamp or signing time (depending on the signature),
+* prints the signing timestamp and creator from a package's TOC, and
 * performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find
   * executable files that are unsigned, or
   * that are codesigned differently from the main executable.

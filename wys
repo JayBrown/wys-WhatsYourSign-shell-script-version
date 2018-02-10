@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.99 beta
+# wys v0.99.1 beta
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -14,6 +14,8 @@
 # deep bundle scan for executable files
 
 shopt -s extglob
+
+crlrefresh rp 2>/dev/null
 
 process="What's Your Sign?"
 account=$(id -un)
@@ -599,11 +601,11 @@ _cscomp () {
 			echo -e "clipped hash:\tmd5:\t$mdhash" >> "$tmploc"
 			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
 			compresult=true
-			_notify "✅ Hash verified" "md5"
+			_notify "✅ MD5 verified" "$filename"
 		else
 			echo -e "clipped hash:\tmd5:\t$clipsum" >> "$tmploc"
 			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
-			_notify "❌ Hash mismatch!" "md5: rehashing..."
+			_notify "❌ MD5 mismatch!" "Rehashing: $filename"
 		fi
 	else
 		shahash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
@@ -611,11 +613,11 @@ _cscomp () {
 			echo -e "clipped hash:\tsha$cstype:\t$shahash" >> "$tmploc"
 			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
 			compresult=true
-			_notify "✅ Hash verified" "sha$cstype"
+			_notify "✅ SHA-$cstype verified" "$filename"
 		else
 			echo -e "clipped hash:\tsha$cstype:\t$clipsum" >> "$tmploc"
 			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
-			_notify "❌ Hash mismatch!" "sha$cstype: rehashing..."
+			_notify "❌ SHA-$cstype mismatch!" "Rehashing: $filename"
 		fi
 	fi
 	if ! $compresult ; then
