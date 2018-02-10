@@ -13,7 +13,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 * prints the file size (B, MB, MiB; only for single files);
 * performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files);
 * verifies codesigning certificates against the current revocation list using `security`;
-  * *Note*: for best results be sure to set OCSP and CRL to "Require if certificate indicates" and Priority to "CRL" in **Keychain Access** > Preferences > Certificates
+  * *Note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates
 * prints `spctl` assessment (packages: `install`; other: `execute`);
 * prints the codesigning timestamp or signing time (depending on the signature);
 * prints the signing timestamp and creator from a package's TOC;
