@@ -6,19 +6,20 @@
 
 **Shell script version of Patrick Wardle's awesome [WhatsYourSign](https://github.com/objective-see/WhatsYourSign)**
 
-Works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG), packages (e.g. pkg), and archives (xip, xar).
+Works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG), packages (e.g. pkg), and archives (xip & probably xar).
 
 In addition to the default WhatsYourSign functionality, **wys** also:
 
-* prints the file size (B, MB, MiB)
-* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files)
-* verifies codesigning certificates against the current revocation list using `security`
-* prints `spctl` assessment (packages: `install`; other: `execute`)
-* prints the codesigning timestamp or signing time (depending on the signature)
-* prints the signing timestamp and creator from a package's toc
-* performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find:
+* prints the file size (B, MB, MiB; only for single files);
+* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files);
+* verifies codesigning certificates against the current revocation list using `security`;
+  * *Note*: for best results be sure to set OCSP and CRL to "Require if certificate indicates" and Priority to "CRL" in **Keychain Access** > Preferences > Certificates
+* prints `spctl` assessment (packages: `install`; other: `execute`);
+* prints the codesigning timestamp or signing time (depending on the signature);
+* prints the signing timestamp and creator from a package's TOC;
+* performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find
   * executable files that are unsigned, or
-  * that are codesigned differently from the main executable
+  * that are codesigned differently from the main executable.
 
 ## Installation
 **Note:** If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the additional functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
@@ -33,6 +34,9 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 * Keyboard shortcut, e.g.: CMD-SHIFT-S
 * Navigate: NC > Preferences > Hotkeys > Conflicts
 * Change keyboard shortcut to resolve any potential conflicts
+
+### Usage in default macOS Finder
+You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the "Services" contextual submenu; you can also assign a keyboard shortcut for it in System Preferences.
 
 ## Beta status
 * still needs general testing, maybe some tweaking for the deep bundle scan
