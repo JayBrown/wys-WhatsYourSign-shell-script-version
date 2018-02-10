@@ -1,6 +1,6 @@
 ![wys-platform-macos](https://img.shields.io/badge/platform-macOS-lightgrey.svg)
 ![wys-code-shell](https://img.shields.io/badge/code-shell-yellow.svg)
-[![wys-license](http://img.shields.io/badge/license-MIT+-blue.svg)](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/license.md)
+[![wys-license](http://img.shields.io/badge/license-MIT+-blue.svg)](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/LICENSE)
 
 # wys – WhatsYourSign (shell script version) <img src="https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/jb-img.png" height="20px"/>
 
