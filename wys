@@ -1087,7 +1087,6 @@ else
 	done
 	if ! [[ -f "$certdir/$filename-cert0.pem" ]] ; then
 		certsec="n/a"
-		skid="SKID_NOT_AVAILABLE"
 	else
 		certsecall=$(security verify-cert -c "$certdir/$filename-cert0.pem" 2>&1)
 		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
