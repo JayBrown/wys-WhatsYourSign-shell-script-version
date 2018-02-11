@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# wys v1.0 beta2
+# wys v1.0 beta3
 #
-# shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
+# shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
@@ -712,6 +712,7 @@ if ! [[ -r "$filepath" ]] ; then
 	continue
 fi
 
+shortname="${filename%.*}"
 extension="${filename##*.}"
 [[ $extension =~ ^(pkg|mpkg|xip|xar)$ ]] && pkgu=true
 
@@ -890,7 +891,7 @@ if ! $pkgu ; then
 							if [[ $cfbid == "" ]] ; then
 								cfbid=$(defaults read "$filepath/Info.plist" CFBundleName 2>/dev/null)
 								if [[ $cfbid == "" ]] ; then
-									cfbid="$filename"
+									cfbid="$shortname"
 								fi
 							fi
 						fi
