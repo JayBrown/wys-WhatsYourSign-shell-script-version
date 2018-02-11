@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v0.99.1 beta
+# wys v1.0 beta
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -569,6 +569,9 @@ else
 	icon_loc="$cacheloc/wys-icon.png"
 fi
 
+dbloc="$cacheloc/wys.db"
+! [[ -f "$dbloc" ]] && sqlite3 "$dbloc" "create table WhatsYourSign(cfbid TEXT, csid TEXT, skid TEXT, misc1 TEXT, misc2 TEXT, misc3 TEXT);"
+
 # round function
 _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
@@ -604,7 +607,7 @@ _cscomp () {
 			_notify "✅ MD5 verified" "$filename"
 		else
 			echo -e "clipped hash:\tmd5:\t$clipsum" >> "$tmploc"
-			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
+			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ MD5 mismatch!" "Rehashing: $filename"
 		fi
 	else
@@ -616,7 +619,7 @@ _cscomp () {
 			_notify "✅ SHA-$cstype verified" "$filename"
 		else
 			echo -e "clipped hash:\tsha$cstype:\t$clipsum" >> "$tmploc"
-			echo -e "\t\tstatus:\tfailed" >> "$tmploc"
+			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ SHA-$cstype mismatch!" "Rehashing: $filename"
 		fi
 	fi
@@ -689,6 +692,9 @@ else
 	fi
 fi
 
+iplistpath="/Contents/Info.plist"
+altiplistpath="/Resources/Info.plist"
+
 for filepath in "$@"
 do
 
@@ -696,6 +702,12 @@ pkgu=false
 clipped=false
 smany=false
 umany=false
+idmatch=false
+
+cfbid=""
+csid=""
+skid=""
+oldskid=""
 
 filename=$(basename "$filepath")
 if ! [[ -r "$filepath" ]] ; then
@@ -758,7 +770,7 @@ if [[ $itemtype == "" ]] ; then
 		if [[ $pclass == "" ]] ; then
 			ptype=$(defaults read "$filepath/Contents/Info.plist" CFBundlePackageType 2>/dev/null)
 			if [[ $ptype == "" ]] ; then
-				echo -e "item type:\t$n/a\n" >> "$tmploc"
+				echo -e "item type:\tn/a\n" >> "$tmploc"
 			else
 				echo -e "package type:\t$ptype\n" >> "$tmploc"
 			fi
@@ -774,11 +786,15 @@ if ! $pkgu ; then
 
 	unsigned=false
 
+	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 	cd /tmp
 	csign=$(codesign -dvvvv --entitlements - --extract-certificates "$filepath" 2>&1)
+	cd /
 
-	if [[ -f codesign0 ]] ; then
-		certsecall=$(security verify-cert -c codesign0 2>&1)
+	if [[ -f /tmp/codesign0 ]] ; then
+		skid=$(openssl x509 -in /tmp/codesign0 -inform DER -noout -text | grep -A1 "Subject Key Identifier" | tail -1 | xargs | sed s/://g)
+		[[ $skid == "" ]] && skid="NO_AVAILABLE_SKID"
+		certsecall=$(security verify-cert -c /tmp/codesign0 2>&1)
 		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
 			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
 		elif [[ $certsecall == "...certificate verification successful." ]] ; then
@@ -788,9 +804,12 @@ if ! $pkgu ; then
 		fi
 	else
 		certsec="n/a"
+		skid="NO_AVAILABLE_SKID"
 	fi
-	cd /
+
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
+
+	csid=$(echo "$csign" | grep "^Identifier=" | awk -F= '{print $2}')
 
 	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then
 		unsigned=true
@@ -853,6 +872,66 @@ if ! $pkgu ; then
 
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
 
+	if ! $unsigned ; then
+		if [[ $filetype == "directory" ]] ; then
+			cfbid=$(defaults read "$filepath$iplistpath" CFBundleIdentifier 2>/dev/null)
+			if [[ $cfbid == "" ]] ; then
+				cfbid=$(defaults read "$filepath$altiplistpath" CFBundleIdentifier 2>/dev/null)
+				if [[ $cfbid == "" ]] ; then
+					cfbid=$(defaults read "$filepath/Info.plist" CFBundleIdentifier 2>/dev/null)
+					if [[ $cfbid == "" ]] ; then
+						cfbid=$(defaults read "$filepath$iplistpath" CFBundleName 2>/dev/null)
+						if [[ $cfbid == "" ]] ; then
+							cfbid=$(defaults read "$filepath$altiplistpath" CFBundleName 2>/dev/null)
+							if [[ $cfbid == "" ]] ; then
+								cfbid=$(defaults read "$filepath/Info.plist" CFBundleName 2>/dev/null)
+								if [[ $cfbid == "" ]] ; then
+									cfbid="$filename"
+								fi
+							fi
+						fi
+					fi
+				fi
+			fi
+		else
+			cfbid="$csid"
+		fi
+
+		if [[ $filetype == "directory" ]] ; then
+			if [[ $cfbid == $csid ]] ; then
+				echo -e "identifiers:\tmatch\n" >> "$tmploc"
+				idmatch=true
+			else
+				echo -e "identifiers:\tMISMATCH" >> "$tmploc"
+				echo -e "bundle:\t\t$cfbid" >> "$tmploc"
+				echo -e "signature:\t$csid\n" >> "$tmploc"
+			fi
+		fi
+
+		oldskid=$(sqlite3 "$dbloc" "select skid from WhatsYourSign where cfbid=\"$cfbid\";")
+		if [[ $oldskid == "" ]] ; then
+			sqlite3 "$dbloc" "insert into WhatsYourSign (cfbid,csid,skid) values (\"$cfbid\",\"$csid\",\"$skid\");"
+			echo -e "SKIDS:\t\t[initial scan]\n" >> "$tmploc"
+		else
+			if [[ $skid == $oldskid ]] ; then
+				if [[ $skid == "NO_AVAILABLE_SKID" ]] ; then
+					echo -e "SKIDS:\t\t$skid\n" >> "$tmploc"
+				else
+					echo -e "SKIDS:\t\tmatch\n" >> "$tmploc"
+				fi
+			else
+				echo -e "SKIDs:\t\tMISMATCH" >> "$tmploc"
+				echo -e "current:\t$skid" >> "$tmploc"
+				echo -e "previous:\t$oldskid\n" >> "$tmploc"
+				if $idmatch ; then
+					sqlite3 "$dbloc" "update WhatsYourSign set skid=\"$skid\" where cfbid=\"$cfbid\";"
+				else
+					sqlite3 "$dbloc" "update WhatsYourSign set (csid,skid) values (\"$csid\",\"$skid\") where cfbid=\"$cfbid\";"
+				fi
+			fi
+		fi
+	fi
+
 	spctlall=$(spctl -v --assess "$filepath" 2>&1)
 	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
 	echo -e "assessment:\t$assess" >> "$tmploc"
@@ -869,10 +948,9 @@ if ! $pkgu ; then
 		if [[ $(echo "$csign" | grep "Signature=") != "" ]] ; then
 			signature=$(echo "$csign" | grep "^Signature=" | awk -F= '{print $2}')
 			[[ $signature == "" ]] && signature="n/a"
-			identifier=$(echo "$csign" | grep "^Identifier=" | awk -F= '{print $2}')
-			[[ $identifier == "" ]] && identifier="n/a"
+			[[ $csid == "" ]] && csid="n/a"
 			teamid=$(echo "$csign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
-			echo -e "sign:\t\t$signature ($identifier)" >> "$tmploc"
+			echo -e "sign:\t\t$signature ($csid)" >> "$tmploc"
 		else
 			cscs=$(echo "$csign" | grep "Authority=" | awk -F= '{print $2}')
 			count=1
@@ -893,7 +971,7 @@ if ! $pkgu ; then
 		if [[ $timestamp == "" ]] ; then
 			timestamp=$(echo "$csign" | grep "Signed Time=" | awk -F= '{print $2}')
 			if [[ $timestamp == "" ]] ; then
-				echo -e "\ntimestamp:\t$n/a\n" >> "$tmploc"
+				echo -e "\ntimestamp:\tn/a\n" >> "$tmploc"
 			else
 				echo -e "\nsigned time:\t$timestamp\n" >> "$tmploc"
 			fi

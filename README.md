@@ -11,13 +11,15 @@ Works with bundles (e.g. applications, extensions etc.), binaries/executables, d
 In addition to the default WhatsYourSign functionality, **wys** also:
 
 * prints the file size (B, MB, MiB; only for single files),
-* performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files),
+* compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (only for single files),
 * verifies codesigning certificates against the current revocation list using `security`—
-  * *Note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
+  * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
+* compares the CFBundleIdentifier with the identifier in the code signature,
+* creates a local database of any scanned CFBundleIdentifier and codesigning SKID, and compares successive scan data with the saved data,
 * prints `spctl` assessment (packages: `install`; other: `execute`),
 * prints the codesigning timestamp or signing time (depending on the signature),
 * prints the signing timestamp and creator from a package's TOC, and
-* performs a deep scan of a bundle, similar to **RB AppChecker Lite**, to find
+* deep-scans a bundle, similar to **RB AppChecker Lite**, to find
   * executable files that are unsigned, or
   * that are codesigned differently from the main executable.
 
@@ -55,12 +57,14 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ![grab1](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app.jpg)
 
-#### Malware application with revoked certificate (KeRanger)
+#### Malware application (KeRanger) with revoked certificate and SKID mismatch
+*Notice the SKID mismatch, i.e. the SKID from the code signature used by the attacker differs from the original certificate by the Transmission developer.*
+
 *Notice the bogey RTF file, which is actually an executable part of the ransomware scheme.*
 
 ![grab2](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware.jpg)
 
-#### Malware application with fake codesigning certificate (OSX.CreativeUpdater)
+#### Malware application (OSX.CreativeUpdater) with fake codesigning certificate and SKID mismatch
 *Compare the main executable code signature (added by attacker) with the other signature (original by Mozilla), i.e. this is a legit app bundle within a malware app bundle to fool the user.*
 
 *Notice the bogey `script` file, which starts the download of the cryptominer malware.*
@@ -79,11 +83,11 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
 
-#### Application with untrusted third-party code signature
+#### Application with untrusted third-party code signature and missing SKID
 
 ![grab17](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-3rdparty.jpg)
 
-#### Adhoc-signed application
+#### Adhoc-signed application with missing SKID
 
 ![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
 
@@ -95,7 +99,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ![grab16](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-kext.jpg)
 
-#### Codesigned command line interface
+#### Codesigned command line interface with initial SKID scan
 
 ![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
 
@@ -120,6 +124,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 ![grab14](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip-user.jpg)
 
 #### Application with cracked executables using proprietary code signatures
+*Notice that the main code signature is unchanged: the SKID comparison shows a match.*
 
 ![grab7](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked.jpg)
 
