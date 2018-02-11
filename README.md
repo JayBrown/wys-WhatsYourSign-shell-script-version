@@ -12,7 +12,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 
 * prints the file size (B, MB, MiB; only for single files),
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (only for single files),
-* verifies codesigning certificates against the current revocation list using `security`—
+* verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
 * compares the CFBundleIdentifier with the identifier in the code signature,
 * creates a local database of any scanned CFBundleIdentifier and codesigning SKID, and compares successive scan data with the saved data,
@@ -41,11 +41,9 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the "Services" contextual submenu; you can also assign a keyboard shortcut for it in System Preferences.
 
 ## Beta status
-* needs certificate extraction from xar TOC and testing against CRL
-* still needs general testing, maybe some tweaking for the deep bundle scan
+* still needs general testing, incl. SKID compare, maybe some tweaking for the deep bundle scan
 * needs testing for sparsebundles
 * find way to compare signing time with other timestamps
-* test new functionality: sqlite db for bundles/packages with app id & cert id
 * might need a one-line result at the top, similar to WhatsYourSign appex (?)
 
 ## Screengrabs

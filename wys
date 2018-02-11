@@ -1,17 +1,11 @@
 #!/bin/bash
 
-# wys v1.0 beta1
+# wys v1.0 beta2
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
-# gain WhatsYourSign functionality in other file managers than macOS Finder
+# gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
 #
-# additional functionality:
-# code signature timestamp
-# spctl assessment
-# xar toc dump for package timestamp & creator
-# file size (B, MB, MiB)
-# hash comparison with clipboard hash
-# deep bundle scan for executable files
+# GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
 
 shopt -s extglob
 
@@ -572,6 +566,9 @@ fi
 dbloc="$cacheloc/wys.db"
 ! [[ -f "$dbloc" ]] && sqlite3 "$dbloc" "create table WhatsYourSign(cfbid TEXT, csid TEXT, skid TEXT, misc1 TEXT, misc2 TEXT, misc3 TEXT);"
 
+certdir="/tmp/wys-certs"
+rm -rf "$certdir"
+
 # round function
 _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
@@ -793,7 +790,7 @@ if ! $pkgu ; then
 
 	if [[ -f /tmp/codesign0 ]] ; then
 		skid=$(openssl x509 -in /tmp/codesign0 -inform DER -noout -text | grep -A1 "Subject Key Identifier" | tail -1 | xargs | sed s/://g)
-		[[ $skid == "" ]] && skid="NO_AVAILABLE_SKID"
+		[[ $skid == "" ]] && skid="SKID_NOT_AVAILABLE"
 		certsecall=$(security verify-cert -c /tmp/codesign0 2>&1)
 		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
 			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
@@ -802,10 +799,16 @@ if ! $pkgu ; then
 		else
 			certsec="$certsecall"
 		fi
-		[[ $(echo "$certsec" | grep "REVOKED") != "" ]] && _notify "❌ Certificate Revoked!" "$filename"
+		if [[ $(echo "$certsec" | grep "REVOKED") != "" ]] ; then
+			_notify "❌ Certificate Revoked!" "$filename"
+		elif [[ $(echo "$certsec" | grep "NOT_TRUSTED") != "" ]] ; then
+			_notify "❌ Certificate Not Trusted!" "$filename"
+		elif [[ $(echo "$certsec" | grep "kSecTrustResultDeny") != "" ]] ; then
+			_notify "❌ Certificate Denied Trust!" "$filename"
+		fi
 	else
 		certsec="n/a"
-		skid="NO_AVAILABLE_SKID"
+		skid="SKID_NOT_AVAILABLE"
 	fi
 
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
@@ -916,7 +919,7 @@ if ! $pkgu ; then
 			echo -e "SKIDs:\t\t[initial scan]\n" >> "$tmploc"
 		else
 			if [[ $skid == $oldskid ]] ; then
-				if [[ $skid == "NO_AVAILABLE_SKID" ]] ; then
+				if [[ $skid == "SKID_NOT_AVAILABLE" ]] ; then
 					echo -e "SKIDs:\t\t$skid\n" >> "$tmploc"
 				else
 					echo -e "SKIDs:\t\tmatch\n" >> "$tmploc"
@@ -1066,13 +1069,52 @@ else
 		_cscomp
 	fi
 
+	pkgheader=$(xar --dump-toc=- -f "$filepath")
+
+	mkdir "$certdir"
+	echo "$pkgheader" | xmllint --xpath '//signature[@style="RSA"]' - \
+		| sed -n '/<X509Certificate>/,/<\/X509Certificate>/p' | xargs \
+		| awk '{gsub("<X509Certificate>","-----BEGINCERTIFICATE-----"); gsub("</X509Certificate>","-----ENDCERTIFICATE-----"); print}' \
+		| awk '{gsub(" ","\n"); print}' \
+		| awk '{gsub("BEGINCERTIFICATE-----","BEGIN CERTIFICATE-----\n"); gsub("-----ENDCERTIFICATE","\n-----END CERTIFICATE"); print}' \
+		| csplit -k -s -n 1 -f "$certdir/$filename"-cert - '/END CERTIFICATE/+1' '{3}' 2>/dev/null
+	for cert in "$certdir/$filename-cert"* ; do
+		if [[ $(cat "$cert") == "" ]] ; then
+			rm -f "$cert"
+		else
+			mv "$cert" "$cert.pem"
+		fi
+	done
+	if ! [[ -f "$certdir/$filename-cert0.pem" ]] ; then
+		certsec="n/a"
+		skid="SKID_NOT_AVAILABLE"
+	else
+		certsecall=$(security verify-cert -c "$certdir/$filename-cert0.pem" 2>&1)
+		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
+			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
+		elif [[ $certsecall == "...certificate verification successful." ]] ; then
+			certsec="successful"
+		else
+			certsec="$certsecall"
+		fi
+		if [[ $(echo "$certsec" | grep "REVOKED") != "" ]] ; then
+			_notify "❌ Certificate Revoked!" "$filename"
+		elif [[ $(echo "$certsec" | grep "NOT_TRUSTED") != "" ]] ; then
+			_notify "❌ Certificate Not Trusted!" "$filename"
+		elif [[ $(echo "$certsec" | grep "kSecTrustResultDeny") != "" ]] ; then
+			_notify "❌ Certificate Denied Trust!" "$filename"
+		fi
+	fi
+
+	echo -e "verification:\t$certsec\n" >> "$tmploc"
+
+	rm -rf "$certdir" 2>/dev/null
+
 	pkginfo=$(pkgutil --check-signature "$filepath")
 
 	pkgstat=$(echo "$pkginfo" | awk -F": " '/Status:/{print $2}')
 	[[ $pkgstat == "" ]] && pkgstat=""
 	echo -e "status:\t\t$pkgstat" >> "$tmploc"
-
-	pkgheader=$(xar --dump-toc=/dev/stdout -f "$filepath")
 
 	cusers=$(echo "$pkgheader" | grep "<user>" | awk -F">" '{print $2}' | awk -F"</" '{print $1}' | grep -v "^$" | sort -u)
 	if [[ $cusers == "" ]] ; then
