@@ -911,13 +911,13 @@ if ! $pkgu ; then
 		oldskid=$(sqlite3 "$dbloc" "select skid from WhatsYourSign where cfbid=\"$cfbid\";")
 		if [[ $oldskid == "" ]] ; then
 			sqlite3 "$dbloc" "insert into WhatsYourSign (cfbid,csid,skid) values (\"$cfbid\",\"$csid\",\"$skid\");"
-			echo -e "SKIDS:\t\t[initial scan]\n" >> "$tmploc"
+			echo -e "SKIDs:\t\t[initial scan]\n" >> "$tmploc"
 		else
 			if [[ $skid == $oldskid ]] ; then
 				if [[ $skid == "NO_AVAILABLE_SKID" ]] ; then
-					echo -e "SKIDS:\t\t$skid\n" >> "$tmploc"
+					echo -e "SKIDs:\t\t$skid\n" >> "$tmploc"
 				else
-					echo -e "SKIDS:\t\tmatch\n" >> "$tmploc"
+					echo -e "SKIDs:\t\tmatch\n" >> "$tmploc"
 				fi
 			else
 				echo -e "SKIDs:\t\tMISMATCH" >> "$tmploc"
