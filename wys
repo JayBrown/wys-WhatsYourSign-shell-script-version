@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta
+# wys v1.0 beta1
 #
 # shell script adaptation of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality in other file managers than macOS Finder
@@ -802,6 +802,7 @@ if ! $pkgu ; then
 		else
 			certsec="$certsecall"
 		fi
+		[[ $(echo "$certsec" | grep "REVOKED") != "" ]] && _notify "❌ Certificate Revoked!" "$filename"
 	else
 		certsec="n/a"
 		skid="NO_AVAILABLE_SKID"
@@ -905,6 +906,7 @@ if ! $pkgu ; then
 				echo -e "identifiers:\tMISMATCH" >> "$tmploc"
 				echo -e "bundle:\t\t$cfbid" >> "$tmploc"
 				echo -e "signature:\t$csid\n" >> "$tmploc"
+				_notify "⚠️ ID Mismatch!" "$filename"
 			fi
 		fi
 
@@ -923,6 +925,7 @@ if ! $pkgu ; then
 				echo -e "SKIDs:\t\tMISMATCH" >> "$tmploc"
 				echo -e "current:\t$skid" >> "$tmploc"
 				echo -e "previous:\t$oldskid\n" >> "$tmploc"
+				_notify "⚠️ SKID Mismatch!" "$filename"
 				if $idmatch ; then
 					sqlite3 "$dbloc" "update WhatsYourSign set skid=\"$skid\" where cfbid=\"$cfbid\";"
 				else

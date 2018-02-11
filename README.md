@@ -41,6 +41,7 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the "Services" contextual submenu; you can also assign a keyboard shortcut for it in System Preferences.
 
 ## Beta status
+* needs certificate extraction from xar TOC and testing against CRL
 * still needs general testing, maybe some tweaking for the deep bundle scan
 * needs testing for sparsebundles
 * find way to compare signing time with other timestamps
@@ -52,6 +53,10 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 #### Checksum for installer package verified from clipboard
 
 ![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
+
+#### Warning of SKID mismatch and certificate revocation (KeRanger)
+
+![grab19](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-skidrevoke.jpg)
 
 #### Application signed with Developer ID
 
