@@ -12,9 +12,6 @@ In addition to the default WhatsYourSign functionality, **wys** also:
 
 * prints the file size (B, MB, MiB; only for single files),
 * performs a comparison between a hash (checksum) stored in the clipboard and the hash calculated for the local file (only for single files),
-
-   ![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
-
 * verifies codesigning certificates against the current revocation list using `security`—
   * *Note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
 * prints `spctl` assessment (packages: `install`; other: `execute`),
@@ -45,9 +42,14 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 * still needs general testing, maybe some tweaking for the deep bundle scan
 * needs testing for sparsebundles
 * find way to compare signing time with other timestamps
+* test new functionality: sqlite db for bundles/packages with app id & cert id
 * might need a one-line result at the top, similar to WhatsYourSign appex (?)
 
 ## Screengrabs
+
+#### Checksum for installer package verified from clipboard
+
+![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
 
 #### Application signed with Developer ID
 
