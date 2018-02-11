@@ -88,6 +88,10 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
 
+#### Application with valid but expired codesigning certificate
+
+![grab20](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-expired.jpg)
+
 #### Application with untrusted third-party code signature and missing SKID
 
 ![grab17](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-3rdparty.jpg)
