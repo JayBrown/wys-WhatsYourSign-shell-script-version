@@ -23,6 +23,12 @@ In addition to the default WhatsYourSign functionality, **wys** also:
   * executable files that are unsigned, or
   * that are codesigned differently from the main executable.
 
+**Note:** The SKID comparison will occasionally produce false negatives, because SKIDs can change for perfectly valid reasons, for example because the developer of a software has:
+
+* renewed an expired certificate,
+* sold his product to another developer, or
+* received a new certificate (e.g. rebranding etc.).
+
 ## Installation
 **Note:** If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the additional functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
 
