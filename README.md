@@ -11,8 +11,8 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 **wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also
 
 * generally works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.), i.e. you can safely scan a file or application on its mounted DMG volume before copying it,
-* prints the file size (B, MB, MiB; only for single files),
-* compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (single files only),
+* prints the file size (B, MB, MiB; regular files only, e.g. DMGs or zip archives),
+* compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
 * compares the CFBundleIdentifier with the identifier in the code signature,
@@ -24,11 +24,11 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
   * executable files that are unsigned, or
   * that are codesigned differently from the main executable.
 
-**Note:** the SKID comparison will occasionally produce false negatives, because SKIDs can change for perfectly valid reasons, for example because the developer of a software has
+**Note:** the SKID comparison will occasionally produce false negatives, because a SKID (a certificate's **Subject Key Identifier**) can change for perfectly valid reasons, for example because the developer of a software has
 
 * renewed an expired certificate,
 * sold his product to another developer, or
-* received a new certificate (e.g. rebranding etc.).
+* received a new certificate (e.g. after company rebranding etc.).
 
 ## Installation
 If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the extended functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
