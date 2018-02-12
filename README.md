@@ -12,6 +12,7 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 
 * generally works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.), i.e. you can safely scan a file or application on its mounted DMG volume before copying it,
 * prints the file size (B, MB, MiB; regular files only, e.g. DMGs or zip archives),
+* prints the download source domain names, so the user can detect potential temporary redirects,
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,

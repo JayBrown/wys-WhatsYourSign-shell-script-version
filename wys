@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta5
+# wys v1.0 beta6
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -734,6 +734,9 @@ echo "$filename" >> "$tmploc"
 shortpath="${filepath/#$HOME/~}"
 echo -e "$shortpath\n" >> "$tmploc"
 
+# check download source
+dlfrom=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p -)
+
 # determine file type (file)
 filetype=$(file "$filepath" | awk -F": " '{print $2}')
 if [[ $filetype != "directory" ]] ; then
@@ -859,6 +862,22 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			executable=""
 			executablename=""
 		fi
+	fi
+
+	# print download sources
+	if [[ $dlfrom != "" ]] ; then
+		dlflist=$(echo "$dlfrom" | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+		count=1
+		while read -r dldomain
+		do
+			if [[ $count == 1 ]] ; then
+				echo -e "downloaded:\t$dldomain" >> "$tmploc"
+			else
+				echo -e "\t\t$dldomain" >> "$tmploc"
+			fi
+			(( count++ ))
+		done < <(echo "$dlflist")
+		echo "" >> "$tmploc"
 	fi
 
 	if [[ $executable != "none" ]] ; then
@@ -1085,7 +1104,23 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	fi
 
-else # pkg, mpkg, xip, xar (maybe)
+else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
+
+	# print download sources
+	if [[ $dlfrom != "" ]] ; then
+		dlflist=$(echo "$dlfrom" | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+		count=1
+		while read -r dldomain
+		do
+			if [[ $count == 1 ]] ; then
+				echo -e "downloaded:\t$dldomain" >> "$tmploc"
+			else
+				echo -e "\t\t$dldomain" >> "$tmploc"
+			fi
+			(( count++ ))
+		done < <(echo "$dlflist")
+		echo "" >> "$tmploc"
+	fi
 
 	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
 		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
