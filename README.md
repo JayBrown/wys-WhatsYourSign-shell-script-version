@@ -10,7 +10,7 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 
 **wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also
 
-* works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.),
+* generally works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.), i.e. you can safely scan a file or application on its mounted DMG volume before copying it,
 * prints the file size (B, MB, MiB; only for single files),
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (single files only),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
