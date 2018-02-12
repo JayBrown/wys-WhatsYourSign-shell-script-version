@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta3
+# wys v1.0 beta4
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -1012,7 +1012,7 @@ if ! $pkgu ; then
 		xfunsigned="unsigned files with executable permissions:"
 		xfothersign="executable files with other code signatures:"
 		cd "$filepath"
-		execfiles=$(find -L . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
+		execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
 		cd /
 		while read -r execfile
 		do
