@@ -49,8 +49,9 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 
 ## Beta status
 * still needs general testing
-* find way to compare signing time with other timestamps
-* might need a one-line result at the top, similar to WhatsYourSign appex (?)
+* timestamp information in Info.plist (research)
+* parse CodeResources to check for modified, missing or added files (maybe)
+* might need a one-line result at the top, similar to WhatsYourSign appex (probably not)
 
 ## Screengrabs
 

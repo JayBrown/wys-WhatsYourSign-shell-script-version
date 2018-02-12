@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta4
+# wys v1.0 beta5
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -11,7 +11,7 @@ shopt -s extglob
 
 crlrefresh rp 2>/dev/null
 
-process="What's Your Sign?"
+process="wys"
 account=$(id -un)
 
 icon64="iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAgAElEQVR4nOzdd3gU
@@ -550,6 +550,7 @@ lDfbnayn1TQ9JLo0vhwQT0RzhXxpyf8HDPSAvQgAgCK5qeyqzWX6+rrHDmRyvU7U
 iFUOzUolVC2LYZqVULV6cCOjpoWscFgvayGxIqKXxQiVw4ZuRaORwt59B9ar/jMA
 sMf/Ax59odGg0nmwAAAAAElFTkSuQmCC"
 
+# create wys icon
 cacheloc="$HOME/.cache/wys"
 ! [[ -d $cacheloc ]] && mkdir -p "$cacheloc"
 rm -f "$cacheloc/wys-icon.base64" 2>/dev/null
@@ -563,18 +564,20 @@ else
 	icon_loc="$cacheloc/wys-icon.png"
 fi
 
+# create database
 dbloc="$cacheloc/wys.db"
 ! [[ -f "$dbloc" ]] && sqlite3 "$dbloc" "create table WhatsYourSign(cfbid TEXT, csid TEXT, skid TEXT, misc1 TEXT, misc2 TEXT, misc3 TEXT);"
 
+# temporary subdirectory for certificate dumps
 certdir="/tmp/wys-certs"
-rm -rf "$certdir"
+rm -rf "$certdir" 2>/dev/null
 
 # round function
 _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
 }
 
-# clipboard checksum parsing
+# parse clipboard for possible checksums (only md5, sha1, sha2)
 _cscn () {
 	case $1 in
 		( *[!0-9A-Fa-f]* | "" ) echo "none" ;;
@@ -591,7 +594,7 @@ _cscn () {
 	esac
 }
 
-# checksum comparison
+# compare checksums
 _cscomp () {
 	compresult=false
 	[ $bsize -gt 100000000 ] && _notify "⚠️ Comparing hashes..." "$filename"
@@ -731,6 +734,7 @@ echo "$filename" >> "$tmploc"
 shortpath="${filepath/#$HOME/~}"
 echo -e "$shortpath\n" >> "$tmploc"
 
+# determine file type (file)
 filetype=$(file "$filepath" | awk -F": " '{print $2}')
 if [[ $filetype != "directory" ]] ; then
 	clipsum=$(pbpaste | xargs 2>/dev/null)
@@ -742,6 +746,7 @@ if [[ $filetype != "directory" ]] ; then
 		clipsum=""
 	fi
 
+	# file size (single files only)
 	bsize=$(stat -f%z "$filepath")
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
@@ -758,12 +763,13 @@ fi
 
 echo -e "file type:\t$filetype" >> "$tmploc"
 
+# determine item type (mdls)
 mdlsall=$(mdls "$filepath" 2>/dev/null)
 itemtype=$(echo "$mdlsall" | awk -F"= " '/kMDItemKind/{print $2}' | sed 's/^"\(.*\)"$/\1/')
 if [[ $itemtype == "" ]] ; then
 	if [[ $filetype != "directory" ]] ; then
 		echo -e "item type:\tn/a\n" >> "$tmploc"
-	else
+	else # mdls might fail on mounted read-only volumes, i.e read from bundle plist
 		pclass=$(defaults read "$filepath/Contents/Info.plist" NSPrincipalClass 2>/dev/null)
 		if [[ $pclass == "" ]] ; then
 			ptype=$(defaults read "$filepath/Contents/Info.plist" CFBundlePackageType 2>/dev/null)
@@ -780,18 +786,23 @@ else
 	echo -e "item type:\t$itemtype\n" >> "$tmploc"
 fi
 
-if ! $pkgu ; then
+if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	unsigned=false
 
+	# read code signature and dump certificates to /tmp
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 	cd /tmp
 	csign=$(codesign -dvvvv --entitlements - --extract-certificates "$filepath" 2>&1)
 	cd /
 
 	if [[ -f /tmp/codesign0 ]] ; then
-		skid=$(openssl x509 -in /tmp/codesign0 -inform DER -noout -text | grep -A1 "Subject Key Identifier" | tail -1 | xargs | sed s/://g)
+
+		# read subject key identifier
+		skid=$(openssl x509 -in /tmp/codesign0 -inform DER -noout -text -fingerprint | grep -A1 "Subject Key Identifier" | tail -1 | xargs | sed s/://g)
 		[[ $skid == "" ]] && skid="SKID_NOT_AVAILABLE"
+
+		# direct certificate verification using keychain utility (security)
 		certsecall=$(security verify-cert -c /tmp/codesign0 2>&1)
 		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
 			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
@@ -814,14 +825,16 @@ if ! $pkgu ; then
 
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 
+	# identifier in the code signature
 	csid=$(echo "$csign" | grep "^Identifier=" | awk -F= '{print $2}')
 
-	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then
+	# determine executable
+	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then # for unsigned items
 		unsigned=true
-		if [[ $filetype != "directory" ]] ; then
+		if [[ $filetype != "directory" ]] ; then # no bundle
 			executable=""
 			executablename=""
-		else
+		else # maybe a bundle
 			executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
 			if [[ $executablename == "" ]] ; then
 				executable="none"
@@ -829,8 +842,8 @@ if ! $pkgu ; then
 				executable="$filepath/Contents/MacOS/$executablename"
 			fi
 		fi
-	else
-		if [[ $filetype == "directory" ]] ; then
+	else # for signed items
+		if [[ $filetype == "directory" ]] ; then # maybe a bundle
 			executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
 			if [[ $executable == "" ]] && [[ $filetype == "directory" ]] ; then
 				executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
@@ -842,14 +855,14 @@ if ! $pkgu ; then
 			else
 				executablename=$(basename "$executable")
 			fi
-		else
+		else # simple file, e.g. a CLI
 			executable=""
 			executablename=""
 		fi
 	fi
 
 	if [[ $executable != "none" ]] ; then
-		if [[ $executable != "" ]] ; then
+		if [[ $executable != "" ]] ; then # not a single file: need to hash the executable
 			bsize=$(stat -f%z "$executable")
 			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$executablename (executable)"
 			md5hash=$(md5 -q "$executable")
@@ -858,7 +871,7 @@ if ! $pkgu ; then
 			echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
 			sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
 			echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-		else
+		else # single file: can check against hash stored in clipboard
 			if ! $clipped ; then
 				[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 				md5hash=$(md5 -q "$filepath")
@@ -878,7 +891,7 @@ if ! $pkgu ; then
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
 
 	if ! $unsigned ; then
-		if [[ $filetype == "directory" ]] ; then
+		if [[ $filetype == "directory" ]] ; then # determine bundle identifier or fallback bundle name
 			cfbid=$(defaults read "$filepath$iplistpath" CFBundleIdentifier 2>/dev/null)
 			if [[ $cfbid == "" ]] ; then
 				cfbid=$(defaults read "$filepath$altiplistpath" CFBundleIdentifier 2>/dev/null)
@@ -890,7 +903,7 @@ if ! $pkgu ; then
 							cfbid=$(defaults read "$filepath$altiplistpath" CFBundleName 2>/dev/null)
 							if [[ $cfbid == "" ]] ; then
 								cfbid=$(defaults read "$filepath/Info.plist" CFBundleName 2>/dev/null)
-								if [[ $cfbid == "" ]] ; then
+								if [[ $cfbid == "" ]] ; then # final fallback: shortname (filename without extension)
 									cfbid="$shortname"
 								fi
 							fi
@@ -898,7 +911,7 @@ if ! $pkgu ; then
 					fi
 				fi
 			fi
-		else
+		else # single file can't have a bundle identifier, i.e. copy the ID in the code signature
 			cfbid="$csid"
 		fi
 
@@ -914,11 +927,12 @@ if ! $pkgu ; then
 			fi
 		fi
 
+		# read previously scanned SKID from sqlite database
 		oldskid=$(sqlite3 "$dbloc" "select skid from WhatsYourSign where cfbid=\"$cfbid\";")
-		if [[ $oldskid == "" ]] ; then
+		if [[ $oldskid == "" ]] ; then # none found, i.e. initial scan and write to database
 			sqlite3 "$dbloc" "insert into WhatsYourSign (cfbid,csid,skid) values (\"$cfbid\",\"$csid\",\"$skid\");"
 			echo -e "SKIDs:\t\t[initial scan]\n" >> "$tmploc"
-		else
+		else # compare SKIDs
 			if [[ $skid == $oldskid ]] ; then
 				if [[ $skid == "SKID_NOT_AVAILABLE" ]] ; then
 					echo -e "SKIDs:\t\t$skid\n" >> "$tmploc"
@@ -939,12 +953,16 @@ if ! $pkgu ; then
 		fi
 	fi
 
+	# default gatekeeper info (valid results only for bundle root)
 	spctlall=$(spctl -v --assess "$filepath" 2>&1)
+
+	# gk assessment
 	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
 	echo -e "assessment:\t$assess" >> "$tmploc"
 
+	# gatekeeper source
 	asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
-	if [[ $asource == "" ]] ; then
+	if [[ $asource == "" ]] ; then # gatekeeper info (execute)
 		asource=$(spctl -a -t execute --context context:primary-signature -v "$filepath" 2>&1 | awk -F"=" '/source=/{print $2}')
 		[[ $asource == "" ]] && asource="n/a"
 	fi
@@ -952,7 +970,8 @@ if ! $pkgu ; then
 
 	if ! $unsigned ; then
 
-		if [[ $(echo "$csign" | grep "Signature=") != "" ]] ; then
+		# parse for main code signature (certificate chain)
+		if [[ $(echo "$csign" | grep "Signature=") != "" ]] ; then # account for adhoc signatures
 			signature=$(echo "$csign" | grep "^Signature=" | awk -F= '{print $2}')
 			[[ $signature == "" ]] && signature="n/a"
 			[[ $csid == "" ]] && csid="n/a"
@@ -974,8 +993,9 @@ if ! $pkgu ; then
 			teamid=$(echo "$csign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
 		fi
 
+		# timestamps
 		timestamp=$(echo "$csign" | grep "Timestamp=" | awk -F= '{print $2}')
-		if [[ $timestamp == "" ]] ; then
+		if [[ $timestamp == "" ]] ; then # no verified timestamp found, looking for unverified signing time
 			timestamp=$(echo "$csign" | grep "Signed Time=" | awk -F= '{print $2}')
 			if [[ $timestamp == "" ]] ; then
 				echo -e "\ntimestamp:\tn/a\n" >> "$tmploc"
@@ -986,6 +1006,7 @@ if ! $pkgu ; then
 			echo -e "\ntimestamp:\t$timestamp\n" >> "$tmploc"
 		fi
 
+		# parse entitlements
 		csignc=$(echo "$csign" | LANG=C LC_CTYPE=C sed 's/^.*\<\?xml/\<\?xml/g' | grep "<.*>")
 		echo "$csignc" >> "$ptmploc"
 		enthr=$(plutil -p "$ptmploc" | grep -v "^{" | grep -v "^}" | sed -e 's/^[ \t]*//' | grep -v "^$")
@@ -1008,12 +1029,18 @@ if ! $pkgu ; then
 		echo -e "sign auth:\tunsigned" >> "$tmploc"
 	fi
 
+	# scan for executable files
 	if [[ $filetype == "directory" ]] && [[ $executable != "" ]] ; then
+
 		xfunsigned="unsigned files with executable permissions:"
 		xfothersign="executable files with other code signatures:"
+
+		# regular files only, executable permissions, don't follow symlinks
 		cd "$filepath"
 		execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
 		cd /
+
+		# check code signature of results and write into separate lists
 		while read -r execfile
 		do
 			execfilepath="$filepath$execfile"
@@ -1029,6 +1056,7 @@ if ! $pkgu ; then
 			fi
 		done < <(echo "$execfiles")
 
+		# count number of lines (files with other code signatures)
 		snumber=$(echo -e "$xfothersign" | wc -l | xargs)
 		if [[ $snumber != "1" ]] ; then
 			if [ $snumber -gt 20 ] ; then
@@ -1042,6 +1070,7 @@ if ! $pkgu ; then
 			echo -e "\n$xfothersign\nnone" >> "$tmploc"
 		fi
 
+		# count number of lines (files without code signatures)
 		unumber=$(echo -e "$xfunsigned" | wc -l | xargs)
 		if [[ $unumber != "1" ]] ; then
 			if [ $unumber -gt 10 ] ; then
@@ -1056,9 +1085,9 @@ if ! $pkgu ; then
 		fi
 	fi
 
-else
+else # pkg, mpkg, xip, xar (maybe)
 
-	if ! $clipped ; then
+	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
 		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 		md5hash=$(md5 -q "$filepath")
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
@@ -1066,13 +1095,15 @@ else
 		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
 		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-	else
+	else # clipboard hash detected and hash compare
 		_cscomp
 	fi
 
+	# dump the package table of contents (header)
 	pkgheader=$(xar --dump-toc=- -f "$filepath")
-
 	mkdir "$certdir"
+
+	# extract installer package signing certificates
 	echo "$pkgheader" | xmllint --xpath '//signature[@style="RSA"]' - \
 		| sed -n '/<X509Certificate>/,/<\/X509Certificate>/p' | xargs \
 		| awk '{gsub("<X509Certificate>","-----BEGINCERTIFICATE-----"); gsub("</X509Certificate>","-----ENDCERTIFICATE-----"); print}' \
@@ -1088,7 +1119,7 @@ else
 	done
 	if ! [[ -f "$certdir/$filename-cert0.pem" ]] ; then
 		certsec="n/a"
-	else
+	else # verify IPSC with keychain tool (security)
 		certsecall=$(security verify-cert -c "$certdir/$filename-cert0.pem" 2>&1)
 		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
 			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
@@ -1110,12 +1141,15 @@ else
 
 	rm -rf "$certdir" 2>/dev/null
 
+	# check signature with pkgutil standard tool
 	pkginfo=$(pkgutil --check-signature "$filepath")
 
+	# security status
 	pkgstat=$(echo "$pkginfo" | awk -F": " '/Status:/{print $2}')
 	[[ $pkgstat == "" ]] && pkgstat=""
 	echo -e "status:\t\t$pkgstat" >> "$tmploc"
 
+	# originating macOS user (creator)
 	cusers=$(echo "$pkgheader" | grep "<user>" | awk -F">" '{print $2}' | awk -F"</" '{print $1}' | grep -v "^$" | sort -u)
 	if [[ $cusers == "" ]] ; then
 		echo -e "creator:\tn/a" >> "$tmploc"
@@ -1132,14 +1166,19 @@ else
 		done < <(echo "$cusers")
 	fi
 
+	# gatekeeper info (install)
 	spctlall=$(spctl -a -t install --context context:primary-signature -v "$filepath" 2>&1)
+
+	# gk assessment
 	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
 	echo -e "\nassessment:\t$assess" >> "$tmploc"
 
+	# gk source
 	asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
 	[[ $asource == "" ]] && asource="n/a"
 	echo -e "source:\t\t$asource\n" >> "$tmploc"
 
+	# parse certificate chain
 	pkgsig=$(echo "$pkginfo" | sed -n -e '/Certificate Chain:/,$p' | grep "^.*[0-9]\." | awk -F. '{print substr($0, index($0,$2))}' | sed -e 's/^[ \t]*//' | grep -v "^$")
 	if [[ $pkgsig == "" ]] ; then
 		echo -e "sign auth:\tunsigned" >> "$tmploc"
@@ -1156,6 +1195,7 @@ else
 		done < <(echo "$pkgsig")
 	fi
 
+	# read embedded timestamp
 	timestamp=$(echo "$pkgheader" | grep "<creation-time>" | awk -F">" '{print $2}' | awk -F"</" '{print $1}' | grep -v "^$")
 	if [[ $timestamp == "" ]] ; then
 		hrtimestamp="n/a"
@@ -1166,6 +1206,7 @@ else
 
 fi
 
+# use qlmanage (QuickLook CLI) to display results
 if $umany ; then
 	qlmanage -p "$utmploc" >/dev/null &
 fi
