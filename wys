@@ -734,9 +734,6 @@ echo "$filename" >> "$tmploc"
 shortpath="${filepath/#$HOME/~}"
 echo -e "$shortpath\n" >> "$tmploc"
 
-# check download source
-dlfrom=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p -)
-
 # determine file type (file)
 filetype=$(file "$filepath" | awk -F": " '{print $2}')
 if [[ $filetype != "directory" ]] ; then
@@ -865,8 +862,8 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# print download sources
-	if [[ $dlfrom != "" ]] ; then
-		dlflist=$(echo "$dlfrom" | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
 		count=1
 		while read -r dldomain
 		do
@@ -1107,8 +1104,8 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
 	# print download sources
-	if [[ $dlfrom != "" ]] ; then
-		dlflist=$(echo "$dlfrom" | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
 		count=1
 		while read -r dldomain
 		do
