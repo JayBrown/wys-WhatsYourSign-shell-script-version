@@ -12,7 +12,7 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 
 * works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.),
 * prints the file size (B, MB, MiB; only for single files),
-* compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (only for single files),
+* compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (single files only),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
 * compares the CFBundleIdentifier with the identifier in the code signature,
