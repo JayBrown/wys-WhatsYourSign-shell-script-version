@@ -8,8 +8,9 @@
 
 It works with bundles (e.g. applications, extensions etc.), binaries/executables, disk images (DMG, sparsebundle), packages (e.g. pkg), and archives (xip & probably xar).
 
-**wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also:
+**wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also
 
+* works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.),
 * prints the file size (B, MB, MiB; only for single files),
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (only for single files),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
@@ -23,7 +24,7 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
   * executable files that are unsigned, or
   * that are codesigned differently from the main executable.
 
-**Note:** the SKID comparison will occasionally produce false negatives, because SKIDs can change for perfectly valid reasons, for example because the developer of a software has:
+**Note:** the SKID comparison will occasionally produce false negatives, because SKIDs can change for perfectly valid reasons, for example because the developer of a software has
 
 * renewed an expired certificate,
 * sold his product to another developer, or
