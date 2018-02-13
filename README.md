@@ -14,6 +14,7 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 * prints the file size (B, MB, MiB; regular files only, e.g. DMGs or zip archives),
 * prints the download source domain names, so the user can detect potential temporary redirects,
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
+* checks the calculated hash against the VirusTotal database for malware detection,
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
 * compares the CFBundleIdentifier with the identifier in the code signature,
@@ -47,6 +48,14 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 
 ### Usage in default macOS Finder
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
+
+### VirusTotal API key
+* create a free account at **[VirusTotal](https://www.virustotal.com)**
+* navigate: VirusTotal > Account > Profile > API Key
+* copy the API Key (*see below*: "YourVirusTotalAPIKey")
+* launch iTerm or Terminal etc. and run the following command
+* bash: `mkdir -p "$HOME/.config/wys" ; echo "vtkey=YourVirusTotalAPIKey" >> "$HOME/.config/wys/wys.cfg"`
+* zsh: `mkdir -p "$HOME/.config/wys" ; echo "vtkey=YourVirusTotalAPIKey" > "$HOME/.config/wys/wys.cfg"`
 
 ## Beta status
 * still needs general testing

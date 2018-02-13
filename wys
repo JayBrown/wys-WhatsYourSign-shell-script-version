@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# wys v1.0 beta6
+# wys v1.0 beta7
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
+#
+# If you have a VirusTotal API key, you can store it for use by wys with the command:
+# bash: mkdir -p "$HOME/.config/wys" ; mkdir echo "vtkey=YourVirusTotalAPIKey" >> "$HOME/.config/wys/wys.cfg"
+# zsh: mkdir -p "$HOME/.config/wys" ; echo "vtkey=YourVirusTotalAPIKey" > "$HOME/.config/wys/wys.cfg"
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
 
@@ -568,9 +572,26 @@ fi
 dbloc="$cacheloc/wys.db"
 ! [[ -f "$dbloc" ]] && sqlite3 "$dbloc" "create table WhatsYourSign(cfbid TEXT, csid TEXT, skid TEXT, misc1 TEXT, misc2 TEXT, misc3 TEXT);"
 
+# config
+configdir="$HOME/.config/wys"
+configloc="$HOME/.config/wys/wys.cfg"
+! [[ -d "$configdir" ]] && mkdir -p "$configdir"
+! [[ -f "$configloc" ]] && touch "$configloc"
+configfull=$(cat "$configloc")
+
+#  VirusTotal key
+vtaccess=false
+vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
+[[ $vtkey != "" ]] && vtaccess=true
+
 # temporary subdirectory for certificate dumps
 certdir="/tmp/wys-certs"
 rm -rf "$certdir" 2>/dev/null
+
+if [[ "$@" == "" ]] ; then
+	echo "No filepaths specified."
+	exit
+fi
 
 # round function
 _round () {
@@ -599,9 +620,9 @@ _cscomp () {
 	compresult=false
 	[ $bsize -gt 100000000 ] && _notify "⚠️ Comparing hashes..." "$filename"
 	if [[ $cstype == "md" ]] ; then
-		mdhash=$(md5 -q "$filepath")
-		if [[ $mdhash == $clipsum ]] ; then
-			echo -e "clipped hash:\tmd5:\t$mdhash" >> "$tmploc"
+		md5hash=$(md5 -q "$filepath")
+		if [[ $md5hash == $clipsum ]] ; then
+			echo -e "clipped hash:\tmd5:\t$md5hash" >> "$tmploc"
 			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
 			compresult=true
 			_notify "✅ MD5 verified" "$filename"
@@ -610,6 +631,7 @@ _cscomp () {
 			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ MD5 mismatch!" "Rehashing: $filename"
 		fi
+		vthash="$md5hash"
 	else
 		shahash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
 		if [[ $shahash == $clipsum ]] ; then
@@ -622,9 +644,13 @@ _cscomp () {
 			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ SHA-$cstype mismatch!" "Rehashing: $filename"
 		fi
+		if $compresult && [[ $cstype == "1" ]] ; then
+			vthash=$(md5 -q "$filepath")
+		fi
 	fi
 	if ! $compresult ; then
 		md5hash=$(md5 -q "$filepath")
+		vthash="$md5hash"
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
@@ -632,6 +658,12 @@ _cscomp () {
 		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
 	fi
 	echo "" | pbcopy
+}
+
+# access Virus Total function
+_virustotal () {
+	curl -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
+		| awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//"
 }
 
 # notify function
@@ -697,6 +729,11 @@ altiplistpath="/Resources/Info.plist"
 
 for filepath in "$@"
 do
+
+if ! [[ -e "$filepath" ]] ; then
+	echo "File does not exist: $filepath" >&2
+	continue
+fi
 
 pkgu=false
 clipped=false
@@ -877,11 +914,13 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo "" >> "$tmploc"
 	fi
 
+	# hashes/checksums
 	if [[ $executable != "none" ]] ; then
 		if [[ $executable != "" ]] ; then # not a single file: need to hash the executable
 			bsize=$(stat -f%z "$executable")
 			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$executablename (executable)"
 			md5hash=$(md5 -q "$executable")
+			vthash="$md5hash"
 			echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 			sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
 			echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
@@ -891,6 +930,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			if ! $clipped ; then
 				[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 				md5hash=$(md5 -q "$filepath")
+				vthash="$md5hash"
 				echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 				sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
 				echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
@@ -900,8 +940,21 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				_cscomp
 			fi
 		fi
+
 	else
 		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
+	fi
+
+	# check hash at VirusTotal
+	vtresult=$(_virustotal "$vthash")
+	if [[ $vtresult == "" ]] ; then
+		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
+	else
+		if [[ $vtresult == "1" ]] ; then
+			echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+		else
+			echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+		fi
 	fi
 
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
@@ -1119,9 +1172,11 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		echo "" >> "$tmploc"
 	fi
 
+	# calculate hashes/checksums
 	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
 		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 		md5hash=$(md5 -q "$filepath")
+		vthash="$md5hash"
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
@@ -1129,6 +1184,18 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
 	else # clipboard hash detected and hash compare
 		_cscomp
+	fi
+
+	# check hash at VirusTotal
+	vtresult=$(_virustotal "$vthash")
+	if [[ $vtresult == "" ]] ; then
+		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
+	else
+		if [[ $vtresult == "1" ]] ; then
+			echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+		else
+			echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+		fi
 	fi
 
 	# dump the package table of contents (header)
