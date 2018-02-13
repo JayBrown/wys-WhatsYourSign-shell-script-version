@@ -945,19 +945,23 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# check hash at VirusTotal
-	vtresult=$(_virustotal "$vthash")
-	if [[ $vtresult == "" ]] ; then
-		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
-	else
-		if [[ $vtresult == "1" ]] ; then
-			echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+	if $vtaccess ; then
+		vtresult=$(_virustotal "$vthash")
+		if [[ $vtresult == "" ]] ; then
+			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 		else
-			echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+			if [[ $vtresult == "1" ]] ; then
+				echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+			else
+				echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+			fi
 		fi
 	fi
 
+	# echo security verification result
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
 
+	# bundle IDs etc.
 	if ! $unsigned ; then
 		if [[ $filetype == "directory" ]] ; then # determine bundle identifier or fallback bundle name
 			cfbid=$(defaults read "$filepath$iplistpath" CFBundleIdentifier 2>/dev/null)
@@ -1186,14 +1190,16 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	fi
 
 	# check hash at VirusTotal
-	vtresult=$(_virustotal "$vthash")
-	if [[ $vtresult == "" ]] ; then
-		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
-	else
-		if [[ $vtresult == "1" ]] ; then
-			echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+	if $vtaccess ; then
+		vtresult=$(_virustotal "$vthash")
+		if [[ $vtresult == "" ]] ; then
+			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 		else
-			echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+			if [[ $vtresult == "1" ]] ; then
+				echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+			else
+				echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+			fi
 		fi
 	fi
 
