@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta7
+# wys v1.0 beta8
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -630,7 +630,7 @@ _cscomp () {
 			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ MD5 mismatch!" "Rehashing: $filename"
 		fi
-		vthash="$md5hash"
+		vthash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 	else
 		shahash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
 		if [[ $shahash == $clipsum ]] ; then
@@ -643,18 +643,22 @@ _cscomp () {
 			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ SHA-$cstype mismatch!" "Rehashing: $filename"
 		fi
-		if $compresult && [[ $cstype == "1" ]] ; then
-			vthash=$(md5 -q "$filepath")
+		if $compresult ; then
+			if [[ $cstype != "256" ]] ; then
+				vthash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+			else
+				vthash="$sha2hash"
+			fi
 		fi
 	fi
 	if ! $compresult ; then
 		md5hash=$(md5 -q "$filepath")
-		vthash="$md5hash"
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
 		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+		vthash="$sha2hash"
 	fi
 	echo "" | pbcopy
 }
@@ -919,22 +923,22 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			bsize=$(stat -f%z "$executable")
 			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$executablename (executable)"
 			md5hash=$(md5 -q "$executable")
-			vthash="$md5hash"
 			echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 			sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
 			echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
 			sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
 			echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+			vthash="$sha2hash"
 		else # single file: can check against hash stored in clipboard
 			if ! $clipped ; then
 				[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 				md5hash=$(md5 -q "$filepath")
-				vthash="$md5hash"
 				echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 				sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
 				echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
 				sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 				echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+				vthash="$sha2hash"
 			else
 				_cscomp
 			fi
@@ -947,13 +951,15 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	# check hash at VirusTotal
 	if $vtaccess ; then
 		vtresult=$(_virustotal "$vthash")
-		if [[ $vtresult == "" ]] ; then
+		if [[ $vtresult == "0" ]] || [[ $vtresult == "" ]] ; then
 			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 		else
 			if [[ $vtresult == "1" ]] ; then
-				echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hit]\n" >> "$tmploc"
+			elif [[ $vtresult == "2" ]] ; then
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hits]\n" >> "$tmploc"
 			else
-				echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+				echo -e "VirusTotal:\tMALWARE [$vtresult hits]\n" >> "$tmploc"
 			fi
 		fi
 	fi
@@ -1179,12 +1185,12 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
 		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 		md5hash=$(md5 -q "$filepath")
-		vthash="$md5hash"
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
 		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+		vthash="$sha2hash"
 	else # clipboard hash detected and hash compare
 		_cscomp
 	fi
@@ -1192,13 +1198,15 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	# check hash at VirusTotal
 	if $vtaccess ; then
 		vtresult=$(_virustotal "$vthash")
-		if [[ $vtresult == "" ]] ; then
+		if [[ $vtresult == "0" ]] || [[ $vtresult == "" ]] ; then
 			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 		else
 			if [[ $vtresult == "1" ]] ; then
-				echo -e "VirusTotal:\t$vtresult hit\n" >> "$tmploc"
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hit]\n" >> "$tmploc"
+			elif [[ $vtresult == "2" ]] ; then
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hits]\n" >> "$tmploc"
 			else
-				echo -e "VirusTotal:\t$vtresult hits\n" >> "$tmploc"
+				echo -e "VirusTotal:\tMALWARE [$vtresult hits]\n" >> "$tmploc"
 			fi
 		fi
 	fi
