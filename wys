@@ -5,9 +5,8 @@
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
 #
-# If you have a VirusTotal API key, you can store it for use by wys with the command:
-# bash: mkdir -p "$HOME/.config/wys" ; mkdir echo "vtkey=YourVirusTotalAPIKey" >> "$HOME/.config/wys/wys.cfg"
-# zsh: mkdir -p "$HOME/.config/wys" ; echo "vtkey=YourVirusTotalAPIKey" > "$HOME/.config/wys/wys.cfg"
+# If you have a VirusTotal API key, run wys at least once, and then you can store the key for use by wys with the command:
+# echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
 

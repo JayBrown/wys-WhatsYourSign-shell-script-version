@@ -50,12 +50,12 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
 
 ### VirusTotal API key
-* create a free account at **[VirusTotal](https://www.virustotal.com)**
-* navigate: VirusTotal > Account > Profile > API Key
+* run **wys** at least once to create the config file
+* create a free online account at **[VirusTotal](https://www.virustotal.com)**
+* in your browser navigate: VirusTotal > Account > Profile > API Key
 * copy the API Key (*see below*: "YourVirusTotalAPIKey")
-* launch iTerm or Terminal etc. and run the following command
-* bash: `mkdir -p "$HOME/.config/wys" ; echo "vtkey=YourVirusTotalAPIKey" >> "$HOME/.config/wys/wys.cfg"`
-* zsh: `mkdir -p "$HOME/.config/wys" ; echo "vtkey=YourVirusTotalAPIKey" > "$HOME/.config/wys/wys.cfg"`
+* launch iTerm or Terminal etc. and run the following command:
+* `echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg`
 
 ## Beta status
 * still needs general testing
