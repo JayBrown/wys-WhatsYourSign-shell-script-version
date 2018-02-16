@@ -57,10 +57,20 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 * launch iTerm or Terminal etc. and run the following command:
 * `echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg`
 
+## Uninstall
+To uninstall, you need to remove the following files:
+
+* **wys** itself
+* wys GitHub directory (if you have cloned it)
+* `~/.config/wys` (contains the configuration file for the VirusTotal API key)
+* `~/.cache/wys` (contains the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI)
+
+Temporary files in `/tmp` will be automatically removed by **wys** after every scan, and potential detritus will be removed at macOS boot.
+
 ## Beta status
-* still needs general testing
-* timestamp information in Info.plist (research)
-* parse CodeResources to check for modified, missing or added files (maybe)
+* still needs general testing, lots of testing
+* timestamp information in Info.plist? (research)
+* deep scan: parse CodeResources to check for modified, missing or added files (probably)
 * might need a one-line result at the top, similar to WhatsYourSign appex (probably not)
 
 ## Screengrabs
