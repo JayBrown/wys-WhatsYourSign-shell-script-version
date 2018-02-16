@@ -925,7 +925,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo "" >> "$tmploc"
 	fi
 
-	# hashes/checksums ### CHECK
+	# hashes/checksums
 	if [[ $executable == "none" ]] ; then
 		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
 	else
@@ -1128,6 +1128,8 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			cd "$filepath"
 			execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
 			cd /
+			xfnumber=$(echo "$execfiles" | wc -l | xargs)
+			[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
 
 			# check code signature of results and write into separate lists
 			while read -r execfile
@@ -1149,7 +1151,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				fi
 			done < <(echo "$execfiles")
 
-			# count number of lines (files with other code signatures) ### DELETE
+			# count number of lines (files with other code signatures) ### DELETE WITH DEEP-SCAN
 			snumber=$(echo -e "$xfothersign" | wc -l | xargs)
 			if [[ $snumber != "1" ]] ; then
 				if [ $snumber -gt 20 ] ; then
