@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta10
+# wys v1.0 beta11
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -593,6 +593,11 @@ if [[ "$@" == "" ]] ; then
 	exit
 fi
 
+# beep function
+_beep () {
+	osascript -e "beep"
+}
+
 # round function
 _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
@@ -626,6 +631,7 @@ _cscomp () {
 			compresult=true
 			_notify "✅ MD5 verified" "$filename"
 		else
+			_beep
 			echo -e "clipped hash:\tmd5:\t$clipsum" >> "$tmploc"
 			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ MD5 mismatch!" "Rehashing: $filename"
@@ -639,6 +645,7 @@ _cscomp () {
 			compresult=true
 			_notify "✅ SHA-$cstype verified" "$filename"
 		else
+			_beep
 			echo -e "clipped hash:\tsha$cstype:\t$clipsum" >> "$tmploc"
 			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
 			_notify "❌ SHA-$cstype mismatch!" "Rehashing: $filename"
@@ -668,9 +675,10 @@ _virustotal () {
 	vtresults=$(curl -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
 		| awk -F"}" -v OFS="}\n" ' $1=$1 {print}' | sed -e 's/^{\"scans\": {//g' -e 's/^, //g' | grep -v "^}$")
 	vthits=$(echo "$vtresults" | awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//" | xargs)
-	if [[ $vthits == "0" ]] || [[ $vtresults == "" ]] ; then
+	if [[ $vthits == "" ]] || [[ $vthits == "0" ]] ; then
 		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 	else
+		_beep
 		vtdetects=$(echo "$vtresults" | grep ": {\"detected\": true," | awk -F\" '{print $12}' | sort)
 		vtmajority=$(echo "$vtdetects" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
 		if [ $vthits -gt 5 ] ; then
@@ -757,18 +765,19 @@ else
 fi
 
 iplistpath="/Contents/Info.plist"
-altiplistpath="/Resources/Info.plist"
 
 for filepath in "$@"
 do
 
 # filepath checks
 if ! [[ -e "$filepath" ]] ; then
+	_beep
 	echo "File does not exist: $filepath" >&2
 	_notify "❓ File not found!" "$filename"
 	continue
 fi
 if ! [[ -r "$filepath" ]] ; then
+	_beep
 	echo "File is not readable: $filepath" >&2
 	_notify "❌ File not readable!" "$filename"
 	continue
@@ -888,10 +897,13 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			certsec="$certsecall"
 		fi
 		if [[ $(echo "$certsec" | grep "REVOKED") != "" ]] ; then
+			_beep
 			_notify "❌ Certificate revoked!" "$filename"
 		elif [[ $(echo "$certsec" | grep "NOT_TRUSTED") != "" ]] ; then
+			_beep
 			_notify "❌ Certificate not trusted!" "$filename"
 		elif [[ $(echo "$certsec" | grep "kSecTrustResultDeny") != "" ]] ; then
+			_beep
 			_notify "❌ Certificate denied trust!" "$filename"
 		fi
 	else
@@ -905,32 +917,114 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	csid=$(echo "$csign" | grep "^Identifier=" | awk -F= '{print $2}')
 
 	# determine executable
-	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] ; then # for unsigned items
+	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] || [[ $(echo "$csign" | grep "unrecognized, invalid, or unsuitable") != "" ]] ; then # for unsigned items
 		unsigned=true
 		if [[ $filetype != "directory" ]] ; then # no bundle
 			executable=""
 			executablename=""
 		else # maybe a bundle
 			executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
-			if [[ $executablename == "" ]] ; then
-				executable="none"
-			else
+			if [[ $executablename != "" ]] ; then
 				executable="$filepath/Contents/MacOS/$executablename"
+			else
+				! [[ -h "$filepath/Resources" ]] && executablename=$(defaults read "$filepath/Resources/Info.plist" CFBundleExecutable 2>/dev/null)
+				if [[ $executablename != "" ]] ; then
+					executable="$filepath/$executablename"
+					if ! [[ -f "$executable" ]] ; then
+						executable="$filepath/Resources/$executablename"
+						if ! [[ -f "$executable" ]] ; then
+							executable="$filepath/MacOS/$executable"
+							! [[ -f "$executable" ]] && executable="none"
+						fi
+					fi
+				else
+					executablename=$(defaults read "$filepath/Versions/Current/Resources/Info.plist" CFBundleExecutable 2>/dev/null)
+					if [[ $executablename != "" ]] ; then
+						iplistrealpath=$(realpath "$filepath/Versions/Current/Resources/Info.plist")
+						iparentdir=$(dirname "$iplistrealpath")
+						execdir=$(dirname "$iparentdir")
+						executable="$execdir/$executablename"
+					else
+						executablename=$(defaults read "$filepath/Info.plist" CFBundleExecutable 2>/dev/null)
+						if [[ $executablename != "" ]] ; then
+							executable="$filepath/$executablename"
+							! [[ -f "$executable" ]] && executable="none"
+						else
+							foundplist=(find "$filepath" -mindepth 1 -type f -wholename 'Info.plist' -print -quit)
+							executablename=$(defaults read "$foundplist" CFBundleExecutable 2>/dev/null)
+							if [[ $executablename != "" ]] ; then
+								iparentdir=$(dirname "$foundplist")
+								execdir=$(dirname "$iparentdir")
+								executable="$execdir/$executablename"
+								! [[ -f "$executable" ]] && executable="none"
+							else
+								executable="none"
+							fi
+						fi
+					fi
+				fi
 			fi
 		fi
 	else # for signed items
 		if [[ $filetype == "directory" ]] ; then # maybe a bundle
 			executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
 			executable=$(realpath "$executable" 2>/dev/null)
-			if [[ $executable == "" ]] && [[ $filetype == "directory" ]] ; then
+			if [[ $executable == "" ]] ; then
 				executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
-				if [[ $executablename == "" ]] ; then
-					executable="none"
-				else
+				if [[ $executablename != "" ]] ; then
 					executable="$filepath/Contents/MacOS/$executablename"
+				else
+					! [[ -h "$filepath/Resources" ]] && executablename=$(defaults read "$filepath/Resources/Info.plist" CFBundleExecutable 2>/dev/null)
+					if [[ $executablename != "" ]] ; then
+						altiplistpath="$filepath/Resources/Info.plist"
+						executable="$filepath/$executablename"
+						if ! [[ -f "$executable" ]] ; then
+							executable="$filepath/Resources/$executablename"
+							if ! [[ -f "$executable" ]] ; then
+								executable="$filepath/MacOS/$executable"
+								! [[ -f "$executable" ]] && executable="none"
+							fi
+						fi
+					else
+						executablename=$(defaults read "$filepath/Versions/Current/Resources/Info.plist" CFBundleExecutable 2>/dev/null)
+						if [[ $executablename != "" ]] ; then
+							altiplistpath=$(realpath "$filepath/Versions/Current/Resources/Info.plist")
+							iparentdir=$(dirname "$altiplistpath")
+							execdir=$(dirname "$iparentdir")
+							executable="$execdir/$executablename"
+						else
+							executablename=$(defaults read "$filepath/Info.plist" CFBundleExecutable 2>/dev/null)
+							if [[ $executablename != "" ]] ; then
+								altiplistpath="$filepath/Info.plist"
+								executable="$filepath/$executablename"
+								! [[ -f "$executable" ]] && executable="none"
+							else
+								foundplist=(find "$filepath" -mindepth 1 -type f -wholename 'Info.plist' -print -quit)
+								executablename=$(defaults read "$foundplist" CFBundleExecutable 2>/dev/null)
+								if [[ $executablename != "" ]] ; then
+									altiplistpath="$foundplist"
+									iparentdir=$(dirname "$foundplist")
+									execdir=$(dirname "$iparentdir")
+									executable="$execdir/$executablename"
+									! [[ -f "$executable" ]] && executable="none"
+								else
+									executable="none"
+								fi
+							fi
+						fi
+					fi
 				fi
 			else
 				executablename=$(basename "$executable")
+				if ! [[ -f "$filepath$iplistpath" ]] ; then
+					altiplistpath="$filepath/Resources/Info.plist"
+					if ! [[ -f "$altiplistpath" ]] ; then
+						altiplistpath="$filepath/Info.plist"
+						if ! [[ -f "$altiplistpath" ]] ; then
+							altiplistpath=$(find "$filepath" -mindepth 1 -type f -wholename 'Info.plist' -print -quit)
+						fi
+					fi
+				fi
 			fi
 		else # simple file, e.g. a CLI
 			executable=""
@@ -982,7 +1076,9 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# check hash at VirusTotal
-	$vtaccess && _virustotal "$vthash"
+	if $vtaccess && [[ $vthash != "" ]] ; then
+		_virustotal "$vthash"
+	fi
 
 	# echo security verification result
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
@@ -992,19 +1088,13 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		if [[ $filetype == "directory" ]] ; then # determine bundle identifier or fallback bundle name
 			cfbid=$(defaults read "$filepath$iplistpath" CFBundleIdentifier 2>/dev/null)
 			if [[ $cfbid == "" ]] ; then
-				cfbid=$(defaults read "$filepath$altiplistpath" CFBundleIdentifier 2>/dev/null)
+				cfbid=$(defaults read "$altiplistpath" CFBundleIdentifier 2>/dev/null)
 				if [[ $cfbid == "" ]] ; then
-					cfbid=$(defaults read "$filepath/Info.plist" CFBundleIdentifier 2>/dev/null)
+					cfbid=$(defaults read "$filepath$iplistpath" CFBundleName 2>/dev/null)
 					if [[ $cfbid == "" ]] ; then
-						cfbid=$(defaults read "$filepath$iplistpath" CFBundleName 2>/dev/null)
-						if [[ $cfbid == "" ]] ; then
-							cfbid=$(defaults read "$filepath$altiplistpath" CFBundleName 2>/dev/null)
-							if [[ $cfbid == "" ]] ; then
-								cfbid=$(defaults read "$filepath/Info.plist" CFBundleName 2>/dev/null)
-								if [[ $cfbid == "" ]] ; then # final fallback: shortname (filename without extension)
-									cfbid="$shortname"
-								fi
-							fi
+						cfbid=$(defaults read "$altiplistpath" CFBundleName 2>/dev/null)
+						if [[ $cfbid == "" ]] ; then # final fallback: shortname (filename without extension)
+							cfbid="$shortname"
 						fi
 					fi
 				fi
@@ -1021,6 +1111,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				echo -e "identifiers:\tMISMATCH" >> "$tmploc"
 				echo -e "bundle:\t\t$cfbid" >> "$tmploc"
 				echo -e "signature:\t$csid\n" >> "$tmploc"
+				_beep
 				_notify "⚠️ ID mismatch!" "$filename"
 			fi
 		fi
@@ -1041,6 +1132,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				echo -e "SKIDs:\t\tMISMATCH" >> "$tmploc"
 				echo -e "\t\tcurrent:\t$skid" >> "$tmploc"
 				echo -e "\t\tprevious:\t$oldskid\n" >> "$tmploc"
+				_beep
 				_notify "⚠️ SKID mismatch!" "$filename"
 				if $idmatch ; then
 					sqlite3 "$dbloc" "update WhatsYourSign set skid=\"$skid\" where cfbid=\"$cfbid\";"
@@ -1127,16 +1219,17 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo -e "sign auth:\tunsigned" >> "$tmploc"
 	fi
 
-	# scan for executable files
+	# scan for executable files ### IMPROVE AS DEEP-SCAN
 	if [[ $filetype == "directory" ]] ; then
 		if [[ $executable != "" ]] ; then
 
+			shortexec=$(echo "$executable" | sed "s-^$filepath--")
 			xfunsigned="unsigned files with executable permissions:"
 			xfothersign="executable files with other code signatures:"
 
 			# regular files only, executable permissions, don't follow symlinks
 			cd "$filepath"
-			execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
+			execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
 			cd /
 			xfnumber=$(echo "$execfiles" | wc -l | xargs)
 			[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
@@ -1255,10 +1348,13 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 			certsec="$certsecall"
 		fi
 		if [[ $(echo "$certsec" | grep "REVOKED") != "" ]] ; then
+			_beep
 			_notify "❌ Certificate revoked!" "$filename"
 		elif [[ $(echo "$certsec" | grep "NOT_TRUSTED") != "" ]] ; then
+			_beep
 			_notify "❌ Certificate not trusted!" "$filename"
 		elif [[ $(echo "$certsec" | grep "kSecTrustResultDeny") != "" ]] ; then
+			_beep
 			_notify "❌ Certificate denied trust!" "$filename"
 		fi
 	fi
