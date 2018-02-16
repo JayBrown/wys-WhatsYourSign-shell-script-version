@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta11
+# wys v1.0 beta12
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -571,6 +571,23 @@ fi
 dbloc="$cacheloc/wys.db"
 ! [[ -f "$dbloc" ]] && sqlite3 "$dbloc" "create table WhatsYourSign(cfbid TEXT, csid TEXT, skid TEXT, misc1 TEXT, misc2 TEXT, misc3 TEXT);"
 
+# create bin directory and export abspath function
+wysbin="$cacheloc/bin"
+! [[ -d "$wysbin" ]] && mkdir "$wysbin"
+if ! [[ -f "$wysbin/abspath" ]] ; then
+	fabsp=$(/bin/cat << 'EOT'
+#!/usr/bin/env python
+import os.path
+import sys
+
+for arg in sys.argv[1:]:
+    print os.path.realpath(os.path.abspath(arg))
+EOT
+	)
+	echo "$fabsp" > "$wysbin/abspath" && chmod u+x "$wysbin/abspath"
+fi
+export PATH=$PATH:"$wysbin"
+
 # create/read config
 configdir="$HOME/.config/wys"
 configloc="$HOME/.config/wys/wys.cfg"
@@ -940,7 +957,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				else
 					executablename=$(defaults read "$filepath/Versions/Current/Resources/Info.plist" CFBundleExecutable 2>/dev/null)
 					if [[ $executablename != "" ]] ; then
-						iplistrealpath=$(realpath "$filepath/Versions/Current/Resources/Info.plist")
+						iplistrealpath=$(abspath "$filepath/Versions/Current/Resources/Info.plist")
 						iparentdir=$(dirname "$iplistrealpath")
 						execdir=$(dirname "$iparentdir")
 						executable="$execdir/$executablename"
@@ -968,7 +985,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	else # for signed items
 		if [[ $filetype == "directory" ]] ; then # maybe a bundle
 			executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
-			executable=$(realpath "$executable" 2>/dev/null)
+			executable=$(abspath "$executable" 2>/dev/null)
 			if [[ $executable == "" ]] ; then
 				executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
 				if [[ $executablename != "" ]] ; then
@@ -988,7 +1005,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 					else
 						executablename=$(defaults read "$filepath/Versions/Current/Resources/Info.plist" CFBundleExecutable 2>/dev/null)
 						if [[ $executablename != "" ]] ; then
-							altiplistpath=$(realpath "$filepath/Versions/Current/Resources/Info.plist")
+							altiplistpath=$(abspath "$filepath/Versions/Current/Resources/Info.plist")
 							iparentdir=$(dirname "$altiplistpath")
 							execdir=$(dirname "$iparentdir")
 							executable="$execdir/$executablename"
