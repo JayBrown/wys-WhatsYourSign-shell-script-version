@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta8
+# wys v1.0 beta9
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -571,14 +571,14 @@ fi
 dbloc="$cacheloc/wys.db"
 ! [[ -f "$dbloc" ]] && sqlite3 "$dbloc" "create table WhatsYourSign(cfbid TEXT, csid TEXT, skid TEXT, misc1 TEXT, misc2 TEXT, misc3 TEXT);"
 
-# config
+# create/read config
 configdir="$HOME/.config/wys"
 configloc="$HOME/.config/wys/wys.cfg"
 ! [[ -d "$configdir" ]] && mkdir -p "$configdir"
 ! [[ -f "$configloc" ]] && touch "$configloc"
 configfull=$(cat "$configloc")
 
-#  VirusTotal key
+# read VirusTotal API key
 vtaccess=false
 vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
 [[ $vtkey != "" ]] && vtaccess=true
@@ -587,6 +587,7 @@ vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
 certdir="/tmp/wys-certs"
 rm -rf "$certdir" 2>/dev/null
 
+# check if path is valid (for command line usage)
 if [[ "$@" == "" ]] ; then
 	echo "No filepaths specified."
 	exit
@@ -617,7 +618,6 @@ _cscn () {
 # compare checksums
 _cscomp () {
 	compresult=false
-	[ $bsize -gt 100000000 ] && _notify "⚠️ Comparing hashes..." "$filename"
 	if [[ $cstype == "md" ]] ; then
 		md5hash=$(md5 -q "$filepath")
 		if [[ $md5hash == $clipsum ]] ; then
@@ -651,7 +651,7 @@ _cscomp () {
 			fi
 		fi
 	fi
-	if ! $compresult ; then
+	if ! $compresult ; then # comparison with no results
 		md5hash=$(md5 -q "$filepath")
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
@@ -733,11 +733,19 @@ altiplistpath="/Resources/Info.plist"
 for filepath in "$@"
 do
 
+# filepath checks
 if ! [[ -e "$filepath" ]] ; then
 	echo "File does not exist: $filepath" >&2
+	_notify "❓ File not found!" "$filename"
+	continue
+fi
+if ! [[ -r "$filepath" ]] ; then
+	echo "File is not readable: $filepath" >&2
+	_notify "❌ File not readable!" "$filename"
 	continue
 fi
 
+# initial stuff
 pkgu=false
 clipped=false
 smany=false
@@ -750,11 +758,6 @@ skid=""
 oldskid=""
 
 filename=$(basename "$filepath")
-if ! [[ -r "$filepath" ]] ; then
-	_notify "❌ Not readable!" "$filename"
-	continue
-fi
-
 shortname="${filename%.*}"
 extension="${filename##*.}"
 [[ $extension =~ ^(pkg|mpkg|xip|xar)$ ]] && pkgu=true
@@ -799,6 +802,10 @@ if [[ $filetype != "directory" ]] ; then
 		mibsize="< 0.01"
 	fi
 	echo -e "size:\t\t$bsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
+	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
+else
+	dirsize=$(du -schm "$filepath" | awk '/total$/{print $1}')
+	[ $dirsize -gt 100 ] && _notify "Large file: please wait..." "$filename"
 fi
 
 echo -e "file type:\t$filetype" >> "$tmploc"
@@ -852,11 +859,11 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			certsec="$certsecall"
 		fi
 		if [[ $(echo "$certsec" | grep "REVOKED") != "" ]] ; then
-			_notify "❌ Certificate Revoked!" "$filename"
+			_notify "❌ Certificate revoked!" "$filename"
 		elif [[ $(echo "$certsec" | grep "NOT_TRUSTED") != "" ]] ; then
-			_notify "❌ Certificate Not Trusted!" "$filename"
+			_notify "❌ Certificate not trusted!" "$filename"
 		elif [[ $(echo "$certsec" | grep "kSecTrustResultDeny") != "" ]] ; then
-			_notify "❌ Certificate Denied Trust!" "$filename"
+			_notify "❌ Certificate denied trust!" "$filename"
 		fi
 	else
 		certsec="n/a"
@@ -885,6 +892,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	else # for signed items
 		if [[ $filetype == "directory" ]] ; then # maybe a bundle
 			executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
+			executable=$(realpath "$executable" 2>/dev/null)
 			if [[ $executable == "" ]] && [[ $filetype == "directory" ]] ; then
 				executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
 				if [[ $executablename == "" ]] ; then
@@ -917,11 +925,11 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo "" >> "$tmploc"
 	fi
 
-	# hashes/checksums
-	if [[ $executable != "none" ]] ; then
-		if [[ $executable != "" ]] ; then # not a single file: need to hash the executable
-			bsize=$(stat -f%z "$executable")
-			[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$executablename (executable)"
+	# hashes/checksums ### CHECK
+	if [[ $executable == "none" ]] ; then
+		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
+	else
+		if [[ $filetype == "directory" ]] ; then # not a single file: need to hash the executable
 			md5hash=$(md5 -q "$executable")
 			echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 			sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
@@ -931,7 +939,6 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			vthash="$sha2hash"
 		else # single file: can check against hash stored in clipboard
 			if ! $clipped ; then
-				[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 				md5hash=$(md5 -q "$filepath")
 				echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 				sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
@@ -943,9 +950,6 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				_cscomp
 			fi
 		fi
-
-	else
-		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
 	fi
 
 	# check hash at VirusTotal
@@ -955,11 +959,17 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 		else
 			if [[ $vtresult == "1" ]] ; then
-				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hit]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tTENTATIVE MALWARE [$vtresult hit]\n" >> "$tmploc"
+				_notify "⚠️ Tentative malware!" "$filename"
 			elif [[ $vtresult == "2" ]] ; then
 				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hits]\n" >> "$tmploc"
+				_notify "⚠️ Possible malware!" "$filename"
+			elif [[ $vtresult == "3" ]] ; then
+				echo -e "VirusTotal:\tPROBABLE MALWARE [$vtresult hits]\n" >> "$tmploc"
+				_notify "⚠️ Probable malware!" "$filename"
 			else
 				echo -e "VirusTotal:\tMALWARE [$vtresult hits]\n" >> "$tmploc"
+				_notify "☠️ Malware detected!" "$filename"
 			fi
 		fi
 	fi
@@ -1001,7 +1011,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				echo -e "identifiers:\tMISMATCH" >> "$tmploc"
 				echo -e "bundle:\t\t$cfbid" >> "$tmploc"
 				echo -e "signature:\t$csid\n" >> "$tmploc"
-				_notify "⚠️ ID Mismatch!" "$filename"
+				_notify "⚠️ ID mismatch!" "$filename"
 			fi
 		fi
 
@@ -1019,9 +1029,9 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				fi
 			else
 				echo -e "SKIDs:\t\tMISMATCH" >> "$tmploc"
-				echo -e "current:\t$skid" >> "$tmploc"
-				echo -e "previous:\t$oldskid\n" >> "$tmploc"
-				_notify "⚠️ SKID Mismatch!" "$filename"
+				echo -e "\t\tcurrent:\t$skid" >> "$tmploc"
+				echo -e "\t\tprevious:\t$oldskid\n" >> "$tmploc"
+				_notify "⚠️ SKID mismatch!" "$filename"
 				if $idmatch ; then
 					sqlite3 "$dbloc" "update WhatsYourSign set skid=\"$skid\" where cfbid=\"$cfbid\";"
 				else
@@ -1108,58 +1118,64 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# scan for executable files
-	if [[ $filetype == "directory" ]] && [[ $executable != "" ]] ; then
+	if [[ $filetype == "directory" ]] ; then
+		if [[ $executable != "" ]] ; then
 
-		xfunsigned="unsigned files with executable permissions:"
-		xfothersign="executable files with other code signatures:"
+			xfunsigned="unsigned files with executable permissions:"
+			xfothersign="executable files with other code signatures:"
 
-		# regular files only, executable permissions, don't follow symlinks
-		cd "$filepath"
-		execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
-		cd /
+			# regular files only, executable permissions, don't follow symlinks
+			cd "$filepath"
+			execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "/Contents/MacOS/$executablename" | sort)
+			cd /
 
-		# check code signature of results and write into separate lists
-		while read -r execfile
-		do
-			execfilepath="$filepath$execfile"
-			xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
-			if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
-				xfunsigned="$xfunsigned\n.$execfile"
-			else
-				xfleafcert=$(echo "$xfcsign" | grep "Authority=" | awk -F= '{print $2}' | head -1)
-				xfteamid=$(echo "$xfcsign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
-				if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
-					xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
+			# check code signature of results and write into separate lists
+			while read -r execfile
+			do
+				execfilepath="$filepath$execfile"
+				xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
+				if [[ $(echo "$xfcsign" | grep "No such file or directory") != "" ]] ; then
+					xfcsign=$(codesign -dvv "$execfilepath"* 2>&1)
 				fi
-			fi
-		done < <(echo "$execfiles")
+				[[ $(echo "$xfcsign" | grep "No such file or directory") != "" ]] && continue
+				if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
+					xfunsigned="$xfunsigned\n.$execfile"
+				else
+					xfleafcert=$(echo "$xfcsign" | grep "Authority=" | awk -F= '{print $2}' | head -1)
+					xfteamid=$(echo "$xfcsign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
+					if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
+						xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
+					fi
+				fi
+			done < <(echo "$execfiles")
 
-		# count number of lines (files with other code signatures)
-		snumber=$(echo -e "$xfothersign" | wc -l | xargs)
-		if [[ $snumber != "1" ]] ; then
-			if [ $snumber -gt 20 ] ; then
-				smany=true
-				echo -e "\nexecutable files with other code signatures:\n[see auxiliary list]" >> "$tmploc"
-				echo -e "$filename\n$filepath\n\n$xfothersign" >> "$stmploc"
+			# count number of lines (files with other code signatures) ### DELETE
+			snumber=$(echo -e "$xfothersign" | wc -l | xargs)
+			if [[ $snumber != "1" ]] ; then
+				if [ $snumber -gt 20 ] ; then
+					smany=true
+					echo -e "\nexecutable files with other code signatures:\n[see auxiliary list]" >> "$tmploc"
+					echo -e "$filename\n$filepath\n\n$xfothersign" >> "$stmploc"
+				else
+					echo -e "\n$xfothersign" >> "$tmploc"
+				fi
 			else
-				echo -e "\n$xfothersign" >> "$tmploc"
+				echo -e "\n$xfothersign\nnone" >> "$tmploc"
 			fi
-		else
-			echo -e "\n$xfothersign\nnone" >> "$tmploc"
-		fi
 
-		# count number of lines (files without code signatures)
-		unumber=$(echo -e "$xfunsigned" | wc -l | xargs)
-		if [[ $unumber != "1" ]] ; then
-			if [ $unumber -gt 10 ] ; then
-				umany=true
-				echo -e "\nunsigned files with executable permissions:\n[see auxiliary list]" >> "$tmploc"
-				echo -e "$filename\n$filepath\n\n$xfunsigned" >> "$utmploc"
+			# count number of lines (files without code signatures)
+			unumber=$(echo -e "$xfunsigned" | wc -l | xargs)
+			if [[ $unumber != "1" ]] ; then
+				if [ $unumber -gt 10 ] ; then
+					umany=true
+					echo -e "\nunsigned files with executable permissions:\n[see auxiliary list]" >> "$tmploc"
+					echo -e "$filename\n$filepath\n\n$xfunsigned" >> "$utmploc"
+				else
+					echo -e "\n$xfunsigned" >> "$tmploc"
+				fi
 			else
-				echo -e "\n$xfunsigned" >> "$tmploc"
+				echo -e "\n$xfunsigned\nnone" >> "$tmploc"
 			fi
-		else
-			echo -e "\n$xfunsigned\nnone" >> "$tmploc"
 		fi
 	fi
 
@@ -1183,7 +1199,6 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
 	# calculate hashes/checksums
 	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
-		[ $bsize -gt 50000000 ] && _notify "⚠️ Please wait! Hashing..." "$filename"
 		md5hash=$(md5 -q "$filepath")
 		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
 		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
@@ -1202,11 +1217,17 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 		else
 			if [[ $vtresult == "1" ]] ; then
-				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hit]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tTENTATIVE MALWARE [$vtresult hit]\n" >> "$tmploc"
+				_notify "⚠️ Tentative malware!" "$filename"
 			elif [[ $vtresult == "2" ]] ; then
 				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hits]\n" >> "$tmploc"
+				_notify "⚠️ Possible malware!" "$filename"
+			elif [[ $vtresult == "3" ]] ; then
+				echo -e "VirusTotal:\tPROBABLE MALWARE [$vtresult hits]\n" >> "$tmploc"
+				_notify "⚠️ Probable malware!" "$filename"
 			else
 				echo -e "VirusTotal:\tMALWARE [$vtresult hits]\n" >> "$tmploc"
+				_notify "☠️ Malware detected!" "$filename"
 			fi
 		fi
 	fi
@@ -1241,11 +1262,11 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 			certsec="$certsecall"
 		fi
 		if [[ $(echo "$certsec" | grep "REVOKED") != "" ]] ; then
-			_notify "❌ Certificate Revoked!" "$filename"
+			_notify "❌ Certificate revoked!" "$filename"
 		elif [[ $(echo "$certsec" | grep "NOT_TRUSTED") != "" ]] ; then
-			_notify "❌ Certificate Not Trusted!" "$filename"
+			_notify "❌ Certificate not trusted!" "$filename"
 		elif [[ $(echo "$certsec" | grep "kSecTrustResultDeny") != "" ]] ; then
-			_notify "❌ Certificate Denied Trust!" "$filename"
+			_notify "❌ Certificate denied trust!" "$filename"
 		fi
 	fi
 
@@ -1266,6 +1287,10 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	if [[ $cusers == "" ]] ; then
 		echo -e "creator:\tn/a" >> "$tmploc"
 	else
+		cusercount=$(echo "$cusers" | wc -l | xargs)
+		if [ $cusercount -gt 1 ] ; then
+			cusers=$(echo "$cusers" | grep -v "^root$")
+		fi
 		count=1
 		while read -r cuser
 		do
