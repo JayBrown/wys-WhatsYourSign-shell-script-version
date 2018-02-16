@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta9
+# wys v1.0 beta10
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -665,8 +665,30 @@ _cscomp () {
 
 # access Virus Total function
 _virustotal () {
-	curl -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
-		| awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//"
+	vtresults=$(curl -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
+		| awk -F"}" -v OFS="}\n" ' $1=$1 {print}' | sed -e 's/^{\"scans\": {//g' -e 's/^, //g' | grep -v "^}$")
+	vthits=$(echo "$vtresults" | awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//" | xargs)
+	if [[ $vthits == "0" ]] || [[ $vtresults == "" ]] ; then
+		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
+	else
+		vtdetects=$(echo "$vtresults" | grep ": {\"detected\": true," | awk -F\" '{print $12}' | sort)
+		vtmajority=$(echo "$vtdetects" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
+		if [ $vthits -gt 3 ] ; then
+			_notify "☠️ Malware detected!" "$filename"
+			echo -e "VirusTotal:\tMALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+		else
+			if [[ $vthits == "1" ]] ; then
+				_notify "⚠️ Tentative malware!" "$filename"
+				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority [$vthits hit]\n" >> "$tmploc"
+			elif [[ $vthits == "2" ]] ; then
+				_notify "⚠️ Possible malware!" "$filename"
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+			elif [[ $vthits == "3" ]] ; then
+				_notify "⚠️ Probable malware!" "$filename"
+				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+			fi
+		fi
+	fi
 }
 
 # notify function
@@ -953,26 +975,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# check hash at VirusTotal
-	if $vtaccess ; then
-		vtresult=$(_virustotal "$vthash")
-		if [[ $vtresult == "0" ]] || [[ $vtresult == "" ]] ; then
-			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
-		else
-			if [[ $vtresult == "1" ]] ; then
-				echo -e "VirusTotal:\tTENTATIVE MALWARE [$vtresult hit]\n" >> "$tmploc"
-				_notify "⚠️ Tentative malware!" "$filename"
-			elif [[ $vtresult == "2" ]] ; then
-				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hits]\n" >> "$tmploc"
-				_notify "⚠️ Possible malware!" "$filename"
-			elif [[ $vtresult == "3" ]] ; then
-				echo -e "VirusTotal:\tPROBABLE MALWARE [$vtresult hits]\n" >> "$tmploc"
-				_notify "⚠️ Probable malware!" "$filename"
-			else
-				echo -e "VirusTotal:\tMALWARE [$vtresult hits]\n" >> "$tmploc"
-				_notify "☠️ Malware detected!" "$filename"
-			fi
-		fi
-	fi
+	$vtaccess && _virustotal "$vthash"
 
 	# echo security verification result
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
@@ -1213,26 +1216,7 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	fi
 
 	# check hash at VirusTotal
-	if $vtaccess ; then
-		vtresult=$(_virustotal "$vthash")
-		if [[ $vtresult == "0" ]] || [[ $vtresult == "" ]] ; then
-			echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
-		else
-			if [[ $vtresult == "1" ]] ; then
-				echo -e "VirusTotal:\tTENTATIVE MALWARE [$vtresult hit]\n" >> "$tmploc"
-				_notify "⚠️ Tentative malware!" "$filename"
-			elif [[ $vtresult == "2" ]] ; then
-				echo -e "VirusTotal:\tPOSSIBLE MALWARE [$vtresult hits]\n" >> "$tmploc"
-				_notify "⚠️ Possible malware!" "$filename"
-			elif [[ $vtresult == "3" ]] ; then
-				echo -e "VirusTotal:\tPROBABLE MALWARE [$vtresult hits]\n" >> "$tmploc"
-				_notify "⚠️ Probable malware!" "$filename"
-			else
-				echo -e "VirusTotal:\tMALWARE [$vtresult hits]\n" >> "$tmploc"
-				_notify "☠️ Malware detected!" "$filename"
-			fi
-		fi
-	fi
+	$vtaccess && _virustotal "$vthash"
 
 	# dump the package table of contents (header)
 	pkgheader=$(xar --dump-toc=- -f "$filepath")
