@@ -647,7 +647,7 @@ _cscomp () {
 			if [[ $cstype != "256" ]] ; then
 				vthash=$(shasum -a 256 "$filepath" | awk '{print $1}')
 			else
-				vthash="$sha2hash"
+				vthash="$shahash"
 			fi
 		fi
 	fi
@@ -673,21 +673,28 @@ _virustotal () {
 	else
 		vtdetects=$(echo "$vtresults" | grep ": {\"detected\": true," | awk -F\" '{print $12}' | sort)
 		vtmajority=$(echo "$vtdetects" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
-		if [ $vthits -gt 3 ] ; then
+		if [ $vthits -gt 5 ] ; then
 			_notify "☠️ Malware detected!" "$filename"
-			echo -e "VirusTotal:\tMALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority [$vthits hits]\n" >> "$tmploc"
 		else
 			if [[ $vthits == "1" ]] ; then
-				_notify "⚠️ Tentative malware!" "$filename"
-				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority [$vthits hit]\n" >> "$tmploc"
+				_notify "⚠️ Malware issues!" "$filename"
+				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority [$vthits hit]\n" >> "$tmploc"
 			elif [[ $vthits == "2" ]] ; then
+				_notify "⚠️ Malware issues!" "$filename"
+				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority [$vthits hits]\n" >> "$tmploc"
+			elif [[ $vthits == "3" ]] ; then
+				_notify "⚠️ Tentative malware!" "$filename"
+				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+			elif [[ $vthits == "4" ]] ; then
 				_notify "⚠️ Possible malware!" "$filename"
 				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
-			elif [[ $vthits == "3" ]] ; then
+			elif [[ $vthits == "5" ]] ; then
 				_notify "⚠️ Probable malware!" "$filename"
 				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
 			fi
 		fi
+		open "https://www.virustotal.com/#/file/$vthash"
 	fi
 }
 
