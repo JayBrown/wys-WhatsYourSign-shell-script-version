@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta12
+# wys v1.0 beta14
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -605,7 +605,7 @@ certdir="/tmp/wys-certs"
 rm -rf "$certdir" 2>/dev/null
 
 # check if path is valid (for command line usage)
-if [[ "$@" == "" ]] ; then
+if [[ $@ == "" ]] ; then
 	echo "No filepaths specified."
 	exit
 fi
@@ -620,7 +620,7 @@ _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
 }
 
-# parse clipboard for possible checksums (only md5, sha1, sha2)
+# parse pbpasted clipboard content for possible checksums (only md5, sha1, sha2)
 _cscn () {
 	case $1 in
 		( *[!0-9A-Fa-f]* | "" ) echo "none" ;;
@@ -781,7 +781,9 @@ else
 	fi
 fi
 
+# set standard .app Info.plist subpaths
 iplistpath="/Contents/Info.plist"
+iplistlocs="Contents/Info.plist\nResources/Info.plist\nInfo.plist"
 
 for filepath in "$@"
 do
@@ -803,7 +805,7 @@ fi
 # initial stuff
 pkgu=false
 clipped=false
-smany=false
+smany=false ### DELETE FOR DEEP SCAN
 umany=false
 idmatch=false
 
@@ -819,12 +821,12 @@ extension="${filename##*.}"
 
 tmploc="/tmp/$filename.wys"
 ptmploc="/tmp/$filename.plist"
-stmploc="/tmp/$filename-os.wys"
+stmploc="/tmp/$filename-os.wys" ### DELETE FOR DEEP SCAN
 utmploc="/tmp/$filename-us.wys"
 rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
 touch "$tmploc"
 touch "$ptmploc"
-touch "$stmploc"
+touch "$stmploc" ### DELETE FOR DEEP SCAN
 touch "$utmploc"
 
 echo "$filename" >> "$tmploc"
@@ -835,6 +837,8 @@ echo -e "$shortpath\n" >> "$tmploc"
 # determine file type (file)
 filetype=$(file "$filepath" | awk -F": " '{print $2}')
 if [[ $filetype != "directory" ]] ; then
+
+	# paste clipboard and check for hash
 	clipsum=$(pbpaste | xargs 2>/dev/null)
 	cstype=$(_cscn "$clipsum")
 	if [[ $cstype != "none" ]] ; then
@@ -844,8 +848,9 @@ if [[ $filetype != "directory" ]] ; then
 		clipsum=""
 	fi
 
-	# file size (single files only)
+	# file size (single/regular files only)
 	bsize=$(stat -f%z "$filepath")
+	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
 	if [[ "$mbsize" == "0.00" ]] ; then
@@ -856,11 +861,24 @@ if [[ $filetype != "directory" ]] ; then
 	if [[ "$mibsize" == "0.00" ]] ; then
 		mibsize="< 0.01"
 	fi
-	echo -e "size:\t\t$bsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
-	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
-else
-	dirsize=$(du -schm "$filepath" | awk '/total$/{print $1}')
-	[ $dirsize -gt 100 ] && _notify "Large file: please wait..." "$filename"
+	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
+	echo -e "size:\t\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
+else # disk usage (directory files only)
+	dirsize=$(du -schk "$filepath" | awk '/total$/{print $1}')
+	[ $dirsize -gt 100000 ] && _notify "Large file: please wait..." "$filename"
+	bsize=$(echo "$dirsize * 1024" | bc)
+	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
+	mbsize=$(_round "$mbsizeraw" 2)
+	if [[ "$mbsize" == "0.00" ]] ; then
+		mbsize="< 0.01"
+	fi
+	mibsizeraw=$(bc -l <<< "scale=6; $bsize/1048576")
+	mibsize=$(_round "$mibsizeraw" 2)
+	if [[ "$mibsize" == "0.00" ]] ; then
+		mibsize="< 0.01"
+	fi
+	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
+	echo -e "size on disk:\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 fi
 
 echo -e "file type:\t$filetype" >> "$tmploc"
@@ -872,9 +890,17 @@ if [[ $itemtype == "" ]] ; then
 	if [[ $filetype != "directory" ]] ; then
 		echo -e "item type:\tn/a\n" >> "$tmploc"
 	else # mdls might fail on mounted read-only volumes, i.e read from bundle plist
-		pclass=$(defaults read "$filepath/Contents/Info.plist" NSPrincipalClass 2>/dev/null)
+		while read -r iplistloc
+		do
+			pclass=$(defaults read "$filepath/$iplistloc" NSPrincipalClass 2>/dev/null)
+			[[ $pclass != "" ]] && break
+		done < <(echo -e "$iplistlocs")
 		if [[ $pclass == "" ]] ; then
-			ptype=$(defaults read "$filepath/Contents/Info.plist" CFBundlePackageType 2>/dev/null)
+			while read -r iplistloc
+			do
+				ptype=$(defaults read "$filepath/$iplistloc" CFBundlePackageType 2>/dev/null)
+				[[ $ptype != "" ]] && break
+			done < <(echo -e "$iplistlocs")
 			if [[ $ptype == "" ]] ; then
 				echo -e "item type:\tn/a\n" >> "$tmploc"
 			else
@@ -1246,7 +1272,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 			# regular files only, executable permissions, don't follow symlinks
 			cd "$filepath"
-			execfiles=$(find -P . -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
+			execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
 			cd /
 			xfnumber=$(echo "$execfiles" | wc -l | xargs)
 			[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
@@ -1254,6 +1280,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			# check code signature of results and write into separate lists
 			while read -r execfile
 			do
+				[[ $execfile == "" ]] && continue
 				execfilepath="$filepath$execfile"
 				xfcsign=$(codesign -dvv "$execfilepath" 2>&1)
 				if [[ $(echo "$xfcsign" | grep "No such file or directory") != "" ]] ; then
