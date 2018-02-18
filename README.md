@@ -11,7 +11,7 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 **wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also
 
 * generally works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.), i.e. you can safely scan a file or application on its mounted DMG volume before copying it,
-* prints the file size (B, MB, MiB; regular files only, e.g. DMGs or zip archives),
+* prints the file size (B, MB, MiB) for regular files (data size) and directories (size on disk),
 * prints the download source domain names, so the user can detect potential temporary redirects,
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
 * checks the calculated hash against the VirusTotal database for malware detection,
@@ -70,7 +70,7 @@ Temporary files in `/tmp` will be automatically removed by **wys** after every s
 ## Beta status
 * still needs general testing, lots of testing
 * timestamp information in Info.plist? (research)
-* deep scan: parse CodeResources to check for modified, missing or added files (probably)
+* deep scan: parse CodeResources to check for modified and unverified/added files (probably)
 * might need a one-line result at the top, similar to WhatsYourSign appex (probably not)
 
 ## Screengrabs

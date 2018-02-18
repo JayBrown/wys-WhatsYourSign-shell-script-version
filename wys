@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta14
+# wys v1.0 beta15
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -1010,7 +1010,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	else # for signed items
 		if [[ $filetype == "directory" ]] ; then # maybe a bundle
-			executable=$(echo "$csign" | awk -F= '/Executable/{print $2}')
+			executable=$(echo "$csign" | awk -F= '/Executable/{print substr($0, index($0,$2))}')
 			executable=$(abspath "$executable" 2>/dev/null)
 			if [[ $executable == "" ]] ; then
 				executablename=$(defaults read "$filepath/Contents/Info.plist" CFBundleExecutable 2>/dev/null)
