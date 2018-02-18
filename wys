@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta15
+# wys v1.0 beta16
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -9,6 +9,19 @@
 # echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
+
+### ICON LOCS FOR NOTIFICATIONS
+# dmg & sparsebundle: /System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns
+# xip: /System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-xip.icns
+# pkg: /System/Library/CoreServices/Installer.app/Contents/Resources/package.icns
+# mpkg: /System/Library/CoreServices/Installer.app/Contents/Resources/metapackage.icns
+# xar: ?
+# app/prefpane: internal
+# app generic: /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns
+# kext & framework: /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/KEXT.icns
+# generic bundle
+# zip etc.: /System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns
+# else: default icon
 
 shopt -s extglob
 
@@ -819,10 +832,10 @@ shortname="${filename%.*}"
 extension="${filename##*.}"
 [[ $extension =~ ^(pkg|mpkg|xip|xar)$ ]] && pkgu=true
 
-tmploc="/tmp/$filename.wys"
+tmploc="/tmp/$filename.log"
 ptmploc="/tmp/$filename.plist"
-stmploc="/tmp/$filename-os.wys" ### DELETE FOR DEEP SCAN
-utmploc="/tmp/$filename-us.wys"
+stmploc="/tmp/$filename-os.log" ### DELETE FOR DEEP SCAN
+utmploc="/tmp/$filename-us.log"
 rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
 touch "$tmploc"
 touch "$ptmploc"
