@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta16
+# wys v1.0 beta17
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -9,19 +9,6 @@
 # echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
-
-### ICON LOCS FOR NOTIFICATIONS
-# dmg & sparsebundle: /System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns
-# xip: /System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-xip.icns
-# pkg: /System/Library/CoreServices/Installer.app/Contents/Resources/package.icns
-# mpkg: /System/Library/CoreServices/Installer.app/Contents/Resources/metapackage.icns
-# xar: ?
-# app/prefpane: internal
-# app generic: /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns
-# kext & framework: /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/KEXT.icns
-# generic bundle
-# zip etc.: /System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns
-# else: default icon
 
 shopt -s extglob
 
@@ -567,8 +554,8 @@ iFUOzUolVC2LYZqVULV6cCOjpoWscFgvayGxIqKXxQiVw4ZuRaORwt59B9ar/jMA
 sMf/Ax59odGg0nmwAAAAAElFTkSuQmCC"
 
 # create wys icon
-cacheloc="$HOME/.cache/wys"
-! [[ -d $cacheloc ]] && mkdir -p "$cacheloc"
+cacheloc="$HOME/.wys"
+! [[ -d $cacheloc ]] && mkdir "$cacheloc"
 rm -f "$cacheloc/wys-icon.base64" 2>/dev/null
 if ! [[ -f $cacheloc/wys-icon.png ]] ; then
 	echo "$icon64" > "$cacheloc/wys-icon.base64"
@@ -586,7 +573,7 @@ dbloc="$cacheloc/wys.db"
 
 # create bin directory and export abspath function
 wysbin="$cacheloc/bin"
-! [[ -d "$wysbin" ]] && mkdir "$wysbin"
+! [[ -d "$wysbin" ]] && mkdir -p "$wysbin"
 if ! [[ -f "$wysbin/abspath" ]] ; then
 	fabsp=$(/bin/cat << 'EOT'
 #!/usr/bin/env python
@@ -602,9 +589,7 @@ fi
 export PATH=$PATH:"$wysbin"
 
 # create/read config
-configdir="$HOME/.config/wys"
-configloc="$HOME/.config/wys/wys.cfg"
-! [[ -d "$configdir" ]] && mkdir -p "$configdir"
+configloc="$cacheloc/config"
 ! [[ -f "$configloc" ]] && touch "$configloc"
 configfull=$(cat "$configloc")
 
@@ -801,6 +786,50 @@ iplistlocs="Contents/Info.plist\nResources/Info.plist\nInfo.plist"
 for filepath in "$@"
 do
 
+shortpath="${filepath/#$HOME/~}"
+
+filename=$(basename "$filepath")
+shortname="${filename%.*}"
+extension="${filename##*.}"
+
+# look for file-specific icons
+if [[ -d "$filepath" ]] ; then
+	if [[ $extension =~ ^(app|APP)$ ]] ; then
+		iconfile=$(defaults read "$filepath$iplistpath" CFBundleIconFile 2>/dev/null)
+		[[ $iconfile != *"."* ]] && iconfile="$iconfile.icns"
+		icon_loc="$filepath/Contents/Resources/$iconfile"
+		! [[ -f "$icon_loc" ]] && icon_loc="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns"
+	elif [[ $extension == "prefPane" ]] ; then
+		iconfile=$(defaults read "$filepath$iplistpath" CFBundleIconFile 2>/dev/null)
+		[[ $iconfile != *"."* ]] && iconfile="$iconfile.icns"
+		icon_loc="$filepath/Contents/Resources/$iconfile"
+		if ! [[ -f "$icon_loc" ]] ; then
+			iconfile=$(defaults read "$filepath$iplistpath" NSPrefPaneIconFile 2>/dev/null)
+			[[ $iconfile != *"."* ]] && iconfile="$iconfile.icns"
+			icon_loc="$filepath/Contents/Resources/$iconfile"
+			! [[ -f "$icon_loc" ]] && icon_loc="/Applications/System Preferences.app/Contents/Resources/PrefFile.icns"
+		fi
+	elif [[ $extension == "sparsebundle" ]] ; then
+		icon_loc="/System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns"
+	elif [[ $extension =~ ^(framework|kext)$ ]] ; then
+		icon_loc="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/KEXT.icns"
+	fi ### STILL MISSING: icon for generic .bundle
+elif [[ -f "$filepath" ]] ; then
+	if [[ $extension =~ ^(dmg|DMG)$ ]] ; then
+		icon_loc="/System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns"
+	elif [[ $extension =~ ^(pkg|PKG)$ ]] ; then
+		icon_loc="/System/Library/CoreServices/Installer.app/Contents/Resources/package.icns"
+	elif [[ $extension =~ ^(mpkg|MPKG)$ ]] ; then
+		icon_loc="/System/Library/CoreServices/Installer.app/Contents/Resources/metapackage.icns"
+	elif [[ $extension =~ ^(xip|XIP)$ ]] ; then
+		icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-xip.icns"
+	else # Note: apparently there's no default icon for xar archives
+		if [[ -f "/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns" ]] ; then
+			icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns"
+		fi
+	fi
+fi
+
 # filepath checks
 if ! [[ -e "$filepath" ]] ; then
 	_beep
@@ -827,11 +856,6 @@ csid=""
 skid=""
 oldskid=""
 
-filename=$(basename "$filepath")
-shortname="${filename%.*}"
-extension="${filename##*.}"
-[[ $extension =~ ^(pkg|mpkg|xip|xar)$ ]] && pkgu=true
-
 tmploc="/tmp/$filename.log"
 ptmploc="/tmp/$filename.plist"
 stmploc="/tmp/$filename-os.log" ### DELETE FOR DEEP SCAN
@@ -842,9 +866,10 @@ touch "$ptmploc"
 touch "$stmploc" ### DELETE FOR DEEP SCAN
 touch "$utmploc"
 
+[[ $extension =~ ^(pkg|mpkg|xip|xar)$ ]] && pkgu=true
+
 echo "$filename" >> "$tmploc"
 
-shortpath="${filepath/#$HOME/~}"
 echo -e "$shortpath\n" >> "$tmploc"
 
 # determine file type (file)
@@ -863,7 +888,7 @@ if [[ $filetype != "directory" ]] ; then
 
 	# file size (single/regular files only)
 	bsize=$(stat -f%z "$filepath")
-	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
+	[ $bsize -gt 1 ] && _notify "Large file: please wait..." "$filename" ### 100000000
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
 	if [[ "$mbsize" == "0.00" ]] ; then
@@ -878,7 +903,7 @@ if [[ $filetype != "directory" ]] ; then
 	echo -e "size:\t\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 else # disk usage (directory files only)
 	dirsize=$(du -schk "$filepath" | awk '/total$/{print $1}')
-	[ $dirsize -gt 100000 ] && _notify "Large file: please wait..." "$filename"
+	[ $dirsize -gt 1 ] && _notify "Large file: please wait..." "$filename" ### 100000
 	bsize=$(echo "$dirsize * 1024" | bc)
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
@@ -1303,10 +1328,16 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				if [[ $(echo "$xfcsign" | grep "is not signed at all") != "" ]] ; then
 					xfunsigned="$xfunsigned\n.$execfile"
 				else
-					xfleafcert=$(echo "$xfcsign" | grep "Authority=" | awk -F= '{print $2}' | head -1)
-					xfteamid=$(echo "$xfcsign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
-					if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
+					xfleafcert=$(echo "$xfcsign" | grep "^Authority=" | awk -F= '{print $2}' | head -1)
+					if [[ $xfleafcert == "" ]] ; then
+						xfleafcert=$(echo "$xfcsign" | grep "^Signature=" | awk -F= '{print $2}' | head -1)
+						[[ $xfleafcert == "" ]] && xfleafcert="n/a"
 						xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
+					else
+						xfteamid=$(echo "$xfcsign" | grep "^TeamIdentifier=" | awk -F= '{print $2}')
+						if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
+							xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
+						fi
 					fi
 				fi
 			done < <(echo "$execfiles")
