@@ -81,7 +81,7 @@ Temporary files in `/tmp` will be automatically removed by **wys** after every s
 * might need a one-line result at the top, similar to WhatsYourSign appex (probably not)
 
 ## Thank you
-* Patrick Wardle (original **WhatsYourSign**)
+* Patrick Wardle (for the original **WhatsYourSign** and all his other great security tools)
 * lososik (feature ideas & testing)
 * Daniel Beck (`abspath`)
 
