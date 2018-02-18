@@ -14,17 +14,18 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 * prints the file size (B, MB, MiB) for regular files (data size) and directories (size on disk),
 * prints the download source domain names, so the user can detect potential temporary redirects,
 * compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
-* checks the calculated hash against the VirusTotal database for malware detection,
+* checks the calculated hash against the VirusTotal database for malware detection (optional),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
 * compares the CFBundleIdentifier with the identifier in the code signature,
 * creates a local database of any scanned CFBundleIdentifier and codesigning SKID, and compares successive scan data with the saved data,
 * prints `spctl` assessment (packages: `install`; other: `execute`),
 * prints the codesigning timestamp or signing time (depending on the signature),
-* prints the signing timestamp and creator from a package's TOC, and
+* prints the signing timestamp and creator from a package's TOC,
 * deep-scans a bundle, similar to **RB AppChecker Lite**, to find
   * executable files that are unsigned, or
-  * that are codesigned differently from the main executable.
+  * that are codesigned differently from the main executable, and
+* permanently writes the scan results to log files (optional).
 
 **Note:** the SKID comparison will occasionally produce false negatives, because a SKID (a certificate's **Subject Key Identifier**) can change for perfectly valid reasons, for example because the developer of a software has
 
@@ -49,21 +50,27 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 ### Usage in default macOS Finder
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
 
-### VirusTotal API key
-* run **wys** at least once to create the config file
+### Scan options
+* run **wys** at least once to create the default wys configuration file
+* run the command `open -a TextEdit ~/.wys/config` to open the config file
+
+#### Enable logging
+* in the **wys config file** replace `report=no` with `report=yes` and **save**
+* logs will be stored in `~/Library/Logs/wys` and will be accessible via Apple's **Console** application
+
+#### VirusTotal API key
 * create a free online account at **[VirusTotal](https://www.virustotal.com)**
 * in your browser navigate: VirusTotal > Account > Profile > API Key
 * copy the API Key (*see below*: "YourVirusTotalAPIKey")
-* launch iTerm or Terminal etc. and run the following command:
-* `echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg`
+* in the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**
 
 ## Uninstall
 To uninstall, you need to remove the following files:
 
 * **wys** itself
 * wys GitHub directory (if you have cloned it)
-* `~/.config/wys` (contains the configuration file for the VirusTotal API key)
-* `~/.cache/wys` (contains the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI)
+* `~/.wys` (contains the config file, the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI)
+* `~/Library/Logs/wys` (contains the log files)
 
 Temporary files in `/tmp` will be automatically removed by **wys** after every scan, and potential detritus will be removed at macOS boot.
 
@@ -72,6 +79,11 @@ Temporary files in `/tmp` will be automatically removed by **wys** after every s
 * timestamp information in Info.plist? (research)
 * deep scan: parse CodeResources to check for modified and unverified/added files (probably)
 * might need a one-line result at the top, similar to WhatsYourSign appex (probably not)
+
+## Thank you
+* Patrick Wardle (original **WhatsYourSign**)
+* lososik (feature ideas & testing)
+* Daniel Beck (`abspath`)
 
 ## Screengrabs
 

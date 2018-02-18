@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta17
+# wys v1.0 beta18
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -590,13 +590,25 @@ export PATH=$PATH:"$wysbin"
 
 # create/read config
 configloc="$cacheloc/config"
-! [[ -f "$configloc" ]] && touch "$configloc"
+if ! [[ -f "$configloc" ]] ; then
+	touch "$configloc"
+	echo -e "report=no\nvtkey=" >> "$configloc"
+fi
 configfull=$(cat "$configloc")
 
 # read VirusTotal API key
 vtaccess=false
 vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
 [[ $vtkey != "" ]] && vtaccess=true
+
+# read report setting
+wyslog=false
+wysreport=$(echo "$configfull" | awk -F= '/report/{print $2}')
+if [[ $wysreport == "yes" ]] ; then
+	wyslog=true
+	logdir="$HOME/Library/Logs/wys"
+	! [[ -d "$logdir" ]] && mkdir -p "$logdir"
+fi
 
 # temporary subdirectory for certificate dumps
 certdir="/tmp/wys-certs"
@@ -786,6 +798,8 @@ iplistlocs="Contents/Info.plist\nResources/Info.plist\nInfo.plist"
 for filepath in "$@"
 do
 
+scandate=$(date)
+
 shortpath="${filepath/#$HOME/~}"
 
 filename=$(basename "$filepath")
@@ -866,7 +880,7 @@ touch "$ptmploc"
 touch "$stmploc" ### DELETE FOR DEEP SCAN
 touch "$utmploc"
 
-[[ $extension =~ ^(pkg|mpkg|xip|xar)$ ]] && pkgu=true
+[[ $extension =~ ^(pkg|mpkg|xip|xar|PKG|MPKG|XIP|XAR)$ ]] && pkgu=true
 
 echo "$filename" >> "$tmploc"
 
@@ -888,7 +902,7 @@ if [[ $filetype != "directory" ]] ; then
 
 	# file size (single/regular files only)
 	bsize=$(stat -f%z "$filepath")
-	[ $bsize -gt 1 ] && _notify "Large file: please wait..." "$filename" ### 100000000
+	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
 	if [[ "$mbsize" == "0.00" ]] ; then
@@ -903,7 +917,7 @@ if [[ $filetype != "directory" ]] ; then
 	echo -e "size:\t\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 else # disk usage (directory files only)
 	dirsize=$(du -schk "$filepath" | awk '/total$/{print $1}')
-	[ $dirsize -gt 1 ] && _notify "Large file: please wait..." "$filename" ### 100000
+	[ $dirsize -gt 100000 ] && _notify "Large file: please wait..." "$filename"
 	bsize=$(echo "$dirsize * 1024" | bc)
 	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
 	mbsize=$(_round "$mbsizeraw" 2)
@@ -1521,10 +1535,23 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 fi
 
 # use qlmanage (QuickLook CLI) to display results
+if $wyslog ; then
+	tmploc_body=$(cat "$tmploc")
+	stmploc_body=$(cat "$stmploc")
+	utmploc_body=$(cat "$utmploc")
+	logbody="scan start: $scandate
+$tmploc_body
+$stmploc_body
+$utmploc_body
+*** end of scan ***"
+	logbody=$(echo "$logbody" | grep -v "^$")
+	logger -i -s -t local.lcars.wys "$logbody" 2>> "$logdir/$filename.log"
+fi
+
 if $umany ; then
 	qlmanage -p "$utmploc" >/dev/null &
 fi
-if $smany ; then
+if $smany ; then ### REMOVE FOR DEEP-SCAN
 	qlmanage -p "$stmploc" >/dev/null &
 fi
 qlmanage -p "$tmploc" >/dev/null &
