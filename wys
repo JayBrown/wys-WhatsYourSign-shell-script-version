@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta18
+# wys v1.0 beta19
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -1544,7 +1544,7 @@ $tmploc_body
 $stmploc_body
 $utmploc_body
 *** end of scan ***"
-	logbody=$(echo "$logbody" | grep -v "^$")
+	logbody=$(echo "$logbody" | grep -v "^$" | ruby -pe '$_.gsub!(/\t/," ")' | sed 's/:  /: /g' | sed 's/  /   /g')
 	logger -i -s -t local.lcars.wys "$logbody" 2>> "$logdir/$filename.log"
 fi
 
