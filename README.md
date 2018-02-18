@@ -61,7 +61,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 #### VirusTotal API key
 * create a free online account at **[VirusTotal](https://www.virustotal.com)**
 * in your browser navigate: VirusTotal > Account > Profile > API Key
-* copy the API Key (*see below*: "YourVirusTotalAPIKey")
+* copy the API Key
 * in the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**
 
 ## Uninstall
