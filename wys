@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta21
+# wys v1.0 beta22
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -10,7 +10,127 @@
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
 
+# check for single user
+scrname=$(basename $0)
+singleuser=$(sysctl -n kern.singleuser)
+if [[ $singleuser == "1" ]] ; then
+	echo "Error! $scrname can not be run in single-user mode."
+	exit
+fi
+
+export LANG=en_US.UTF-8
+
+# check compatibility
+osversion=$(sw_vers -productVersion | awk -F. '{print $2}')
+if [[ "$osversion" -le 7 ]] ; then
+	_beep
+	info=$(osascript << EOT
+beep
+tell application "System Events"
+	activate
+	set userChoice to button returned of (display alert "wys: Error!" & return & return & "Minimum OS Requirement:" & return & "OS X 10.8 (Mountain Lion)" ¬
+		as critical ¬
+		buttons {"Quit"} ¬
+		default button 1 ¬
+		giving up after 60)
+end tell
+EOT
+	)
+	exit
+fi
+
 shopt -s extglob
+
+cacheloc="$HOME/.wys"
+configloc="$cacheloc/config"
+version="1.0"
+bversion=" beta 22"
+
+# command line options
+silentoverride=false
+if [[ $1 =~ ^(--init|--initialize|--reset)$ ]] ; then
+	if [[ -f "$configloc" ]] ; then
+		echo -e "All previous settings will be lost.\nDo you really want to initialize wys? (n/Y)\n"
+		read -n 1 -s  userinput
+		if [[ $userinput == "Y" ]] ; then
+			echo -e "report=no\nvtkey=\nsilent=no" > "$configloc"
+			echo "wys: initialized."
+		else
+			echo "wys: no change."
+		fi
+	else
+		! [[ -d "$cacheloc" ]] && mkdir "$cacheloc"
+		echo -e "report=no\nvtkey=\nsilent=no" > "$configloc"
+		echo "wys: initialized."
+	fi
+	exit
+elif [[ $1 == "--config" ]] ; then
+	configfull=$(cat "$configloc")
+	if [[ $configfull == "" ]] ; then
+		echo "wys: config is empty. Please run 'wys --init' first." >&2
+		exit
+	fi
+	shift
+	if [[ $1 =~ ^(vt|virustotal|virus-total)$ ]] ; then
+		shift
+		if [[ $1 == "" ]] ; then
+			echo "wys: no VirusTotal API key specified." >&2
+			exit
+		else
+			configfull=$(echo "$configfull" | grep -v "^vtkey=")
+			echo -e "$configfull\nvtkey=$1" > "$configloc"
+			echo "wys: VirusTotal API key added to config: $1"
+		fi
+	elif [[ $1 =~ ^(report|log)$ ]] ; then
+		logstatus=$(echo "$configfull" | awk -F= '/^report/{print $2}')
+		configfull=$(echo "$configfull" | grep -v "^report=")
+		if [[ $logstatus == "no" ]] ; then
+			echo -e "$configfull\nreport=yes" > "$configloc"
+			echo "wys: logging enabled."
+		else
+			echo -e "$configfull\nreport=no" > "$configloc"
+			echo "wys: logging disabled."
+		fi
+	elif [[ $1 =~ ^(silent|quiet)$ ]] ; then
+		silentstatus=$(echo "$configfull" | awk -F= '/^silent/{print $2}')
+		configfull=$(echo "$configfull" | grep -v "^silent=")
+		if [[ $silentstatus == "no" ]] ; then
+			echo -e "$configfull\nsilent=yes" > "$configloc"
+			echo "wys: silent mode enabled."
+		else
+			echo -e "$configfull\nsilent=no" > "$configloc"
+			echo "wys: silent mode disabled."
+		fi
+	elif [[ $1 == "" ]] ; then
+		echo "wys: no argument specified." >&2
+	else
+		echo "wys: unknown argument: $1" >&2
+	fi
+	exit
+elif [[ $1 == "--status" ]] ; then
+	configfull=$(cat "$configloc")
+	if [[ $configfull == "" ]] ; then
+		echo "wys: config is empty. Please run 'wys --init' first." >&2
+	else
+		logstatus=$(echo "$configfull" | awk -F= '/^report/{print $2}')
+		[[ $logstatus == "" ]] && logstatus="n/a"
+		silentstatus=$(echo "$configfull" | awk -F= '/^silent/{print $2}')
+		[[ $silentstatus == "" ]] && silentstatus="n/a"
+		vtkey=$(echo "$configfull" | awk -F= '/^vtkey/{print $2}')
+		[[ $vtkey == "" ]] && vtkey="n/a"
+		echo -e "logging:\t$logstatus"
+		echo -e "silent mode:\t$silentstatus"
+		echo -e "VirusTotal key:\t$vtkey"
+	fi
+	exit
+elif [[ $1 == "--help" ]] ; then
+	echo -e "wys $version$bversion\n\n--init:\t\tinitialize wys\n--silent:\tenable silent mode override\n--status:\tprint config status\n\n--config [vt | report | silent]:\tmodify configuration file\n\tvt <key>:\tenter VirusTotal API key\n\treport:\t\tenable logging\n\tsilent:\t\tenable silent mode"
+	exit
+elif [[ $1 == "--silent" ]] || [[ $1 == "--quiet" ]] ; then
+	echo "wys: silent mode override enabled for current scans."
+	silentoverride=true
+	shift
+fi
 
 crlrefresh rp 2>/dev/null
 
@@ -554,7 +674,6 @@ iFUOzUolVC2LYZqVULV6cCOjpoWscFgvayGxIqKXxQiVw4ZuRaORwt59B9ar/jMA
 sMf/Ax59odGg0nmwAAAAAElFTkSuQmCC"
 
 # create wys icon
-cacheloc="$HOME/.wys"
 ! [[ -d $cacheloc ]] && mkdir "$cacheloc"
 rm -f "$cacheloc/wys-icon.base64" 2>/dev/null
 if ! [[ -f $cacheloc/wys-icon.png ]] ; then
@@ -589,17 +708,21 @@ fi
 export PATH=$PATH:"$wysbin"
 
 # create/read config
-configloc="$cacheloc/config"
 if ! [[ -f "$configloc" ]] ; then
 	touch "$configloc"
-	echo -e "report=no\nvtkey=" >> "$configloc"
+	echo -e "report=no\nvtkey=\nsilent=no" >> "$configloc"
 fi
 configfull=$(cat "$configloc")
 
 # read VirusTotal API key
 vtaccess=false
 vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
-[[ $vtkey != "" ]] && vtaccess=true
+if [[ $vtkey != "" ]] ; then
+	vtaccess=true
+	echo "wys: VirusTotal API Key detected."
+else
+	echo "wys: VirusTotal API Key not found."
+fi
 
 # read report setting
 wyslog=false
@@ -608,6 +731,21 @@ if [[ $wysreport == "yes" ]] ; then
 	wyslog=true
 	logdir="$HOME/Library/Logs/wys"
 	! [[ -d "$logdir" ]] && mkdir -p "$logdir"
+	echo "wys: configured to log scan reports."
+fi
+
+# read silent mode
+silent=false
+if ! $silentoverride ; then
+	silentmode=$(echo "$configfull" | awk -F= '/silent/{print $2}')
+	if [[ $silentmode == "yes" ]] ; then
+		silent=true
+		echo "wys: configured to run in silent mode."
+	else
+		echo "wys: silent mode disabled."
+	fi
+else
+	silent=true
 fi
 
 # temporary subdirectory for certificate dumps
@@ -620,6 +758,66 @@ if [[ $@ == "" ]] ; then
 	exit
 fi
 
+# notify function
+_notify () {
+	if ! $silent ; then
+		if [[ "$tn_status" == "osa" ]] ; then
+			osascript &>/dev/null << EOT
+tell application "System Events"
+	display notification "$2" with title "$process [" & "$account" & "]" subtitle "$1"
+end tell
+EOT
+		elif [[ "$tn_status" == "tn-app-new" ]] || [[ "$tn_status" == "tn-app-old" ]] ; then
+			"$tn_loc/Contents/MacOS/terminal-notifier" \
+				-title "$process [$account]" \
+				-subtitle "$1" \
+				-message "$2" \
+				-appIcon "$icon_loc" \
+				>/dev/null
+		elif [[ "$tn_status" == "tn-cli" ]] ; then
+			"$tn" \
+				-title "$process [$account]" \
+				-subtitle "$1" \
+				-message "$2" \
+				-appIcon "$icon_loc" \
+				>/dev/null
+		fi
+	fi
+}
+
+# look for terminal-notifier
+tn=$(which terminal-notifier 2>/dev/null)
+if [[ "$tn" == "" ]] || [[ "$tn" == *"not found" ]] ; then
+	tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+	if [[ "$tn_loc" == "" ]] ; then
+		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+		if [[ "$tn_loc" == "" ]] ; then
+			tn_status="osa"
+		else
+			tn_status="tn-app-old"
+		fi
+	else
+		tn_status="tn-app-new"
+	fi
+else
+	tn_vers=$("$tn" -help | head -1 | awk -F'[()]' '{print $2}' | awk -F. '{print $1"."$2}')
+	if (( $(echo "$tn_vers >= 1.8" | bc -l) )) && (( $(echo "$tn_vers < 2.0" | bc -l) )) ; then
+		tn_status="tn-cli"
+	else
+		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+		if [[ "$tn_loc" == "" ]] ; then
+			tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+			if [[ "$tn_loc" == "" ]] ; then
+				tn_status="osa"
+			else
+				tn_status="tn-app-old"
+			fi
+		else
+			tn_status="tn-app-new"
+		fi
+	fi
+fi
+
 # beep function
 _beep () {
 	osascript -e "beep"
@@ -628,6 +826,22 @@ _beep () {
 # round function
 _round () {
 	echo $(printf %.$2f $(echo "scale=$2;(((10^$2)*$1)+0.5)/(10^$2)" | bc))
+}
+
+# other size calculations
+_sizes () {
+	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
+	mbsize=$(_round "$mbsizeraw" 2)
+	if [[ "$mbsize" == "0.00" ]] ; then
+		mbsize="< 0.01"
+	fi
+	mibsizeraw=$(bc -l <<< "scale=6; $bsize/1048576")
+	mibsize=$(_round "$mibsizeraw" 2)
+	if [[ "$mibsize" == "0.00" ]] ; then
+		mibsize="< 0.01"
+	fi
+	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
+	echo -e "size on disk:\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 }
 
 # parse pbpasted clipboard content for possible checksums (only md5, sha1, sha2)
@@ -645,6 +859,17 @@ _cscn () {
 				( * ) echo "none" ;;
 			esac
 	esac
+}
+
+# hashing function
+_hashes () {
+	md5hash=$(md5 -q "$1")
+	echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
+	sha1hash=$(shasum -a 1 "$1" | awk '{print $1}')
+	echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
+	sha2hash=$(shasum -a 256 "$1" | awk '{print $1}')
+	echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
+	vthash="$sha2hash"
 }
 
 # compare checksums
@@ -686,20 +911,14 @@ _cscomp () {
 		fi
 	fi
 	if ! $compresult ; then # comparison with no results
-		md5hash=$(md5 -q "$filepath")
-		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
-		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
-		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-		vthash="$sha2hash"
+		_hashes "$filepath"
 	fi
 	echo "" | pbcopy
 }
 
 # access Virus Total function
 _virustotal () {
-	vtresults=$(curl -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
+	vtresults=$(curl --connect-timeout 10 -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
 		| awk -F"}" -v OFS="}\n" ' $1=$1 {print}' | sed -e 's/^{\"scans\": {//g' -e 's/^, //g' | grep -v "^}$")
 	vthits=$(echo "$vtresults" | awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//" | xargs)
 	if [[ $vthits == "" ]] || [[ $vthits == "0" ]] ; then
@@ -710,86 +929,28 @@ _virustotal () {
 		vtmajority=$(echo "$vtdetects" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
 		if [ $vthits -gt 5 ] ; then
 			_notify "☠️ Malware detected!" "$filename"
-			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority [$vthits hits]\n" >> "$tmploc"
+			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority ($vthits hits)\n" >> "$tmploc"
 		else
 			if [[ $vthits == "1" ]] ; then
 				_notify "⚠️ Malware issue!" "$filename"
-				echo -e "VirusTotal:\tMALWARE ISSUE: $vtmajority [$vthits hit]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tMALWARE ISSUE: $vtmajority ($vthits hit)\n" >> "$tmploc"
 			elif [[ $vthits == "2" ]] ; then
 				_notify "⚠️ Malware issues!" "$filename"
-				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority [$vthits hits]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			elif [[ $vthits == "3" ]] ; then
 				_notify "⚠️ Tentative malware!" "$filename"
-				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			elif [[ $vthits == "4" ]] ; then
 				_notify "⚠️ Possible malware!" "$filename"
-				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			elif [[ $vthits == "5" ]] ; then
 				_notify "⚠️ Probable malware!" "$filename"
-				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority [$vthits hits]\n" >> "$tmploc"
+				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			fi
 		fi
 		open "https://www.virustotal.com/#/file/$vthash"
 	fi
 }
-
-# notify function
-_notify () {
- 	if [[ "$tn_status" == "osa" ]] ; then
-		osascript &>/dev/null << EOT
-tell application "System Events"
-	display notification "$2" with title "$process [" & "$account" & "]" subtitle "$1"
-end tell
-EOT
-	elif [[ "$tn_status" == "tn-app-new" ]] || [[ "$tn_status" == "tn-app-old" ]] ; then
-		"$tn_loc/Contents/MacOS/terminal-notifier" \
-			-title "$process [$account]" \
-			-subtitle "$1" \
-			-message "$2" \
-			-appIcon "$icon_loc" \
-			>/dev/null
-	elif [[ "$tn_status" == "tn-cli" ]] ; then
-		"$tn" \
-			-title "$process [$account]" \
-			-subtitle "$1" \
-			-message "$2" \
-			-appIcon "$icon_loc" \
-			>/dev/null
-	fi
-}
-
-# look for terminal-notifier
-tn=$(which terminal-notifier 2>/dev/null)
-if [[ "$tn" == "" ]] || [[ "$tn" == *"not found" ]] ; then
-	tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
-	if [[ "$tn_loc" == "" ]] ; then
-		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
-		if [[ "$tn_loc" == "" ]] ; then
-			tn_status="osa"
-		else
-			tn_status="tn-app-old"
-		fi
-	else
-		tn_status="tn-app-new"
-	fi
-else
-	tn_vers=$("$tn" -help | head -1 | awk -F'[()]' '{print $2}' | awk -F. '{print $1"."$2}')
-	if (( $(echo "$tn_vers >= 1.8" | bc -l) )) && (( $(echo "$tn_vers < 2.0" | bc -l) )) ; then
-		tn_status="tn-cli"
-	else
-		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
-		if [[ "$tn_loc" == "" ]] ; then
-			tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
-			if [[ "$tn_loc" == "" ]] ; then
-				tn_status="osa"
-			else
-				tn_status="tn-app-old"
-			fi
-		else
-			tn_status="tn-app-new"
-		fi
-	fi
-fi
 
 # set standard .app Info.plist subpaths
 iplistpath="/Contents/Info.plist"
@@ -823,13 +984,13 @@ if [[ -d "$filepath" ]] ; then
 			icon_loc="$filepath/Contents/Resources/$iconfile"
 			! [[ -f "$icon_loc" ]] && icon_loc="/Applications/System Preferences.app/Contents/Resources/PrefFile.icns"
 		fi
-	elif [[ $extension == "sparsebundle" ]] ; then
+	elif [[ $extension =~ ^(sparsebundle|SPARSEBUNDLE)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns"
-	elif [[ $extension =~ ^(framework|kext)$ ]] ; then
+	elif [[ $extension =~ ^(framework|kext|FRAMEWORK|KEXT)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/KEXT.icns"
 	fi ### STILL MISSING: icon for generic .bundle
 elif [[ -f "$filepath" ]] ; then
-	if [[ $extension =~ ^(dmg|DMG)$ ]] ; then
+	if [[ $extension =~ ^(dmg|sparseimage|DMG|SPARSEIMAGE)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns"
 	elif [[ $extension =~ ^(pkg|PKG)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/Installer.app/Contents/Resources/package.icns"
@@ -839,7 +1000,8 @@ elif [[ -f "$filepath" ]] ; then
 		icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-xip.icns"
 	else # Note: apparently there's no default icon for xar archives
 		if [[ -f "/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns" ]] ; then
-			icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns"
+			extvar=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
+			icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extvar.icns"
 		fi
 	fi
 fi
@@ -903,34 +1065,12 @@ if [[ $filetype != "directory" ]] ; then
 	# file size (single/regular files only)
 	bsize=$(stat -f%z "$filepath")
 	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
-	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
-	mbsize=$(_round "$mbsizeraw" 2)
-	if [[ "$mbsize" == "0.00" ]] ; then
-		mbsize="< 0.01"
-	fi
-	mibsizeraw=$(bc -l <<< "scale=6; $bsize/1048576")
-	mibsize=$(_round "$mibsizeraw" 2)
-	if [[ "$mibsize" == "0.00" ]] ; then
-		mibsize="< 0.01"
-	fi
-	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
-	echo -e "size:\t\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
+	_sizes
 else # disk usage (directory files only)
 	dirsize=$(du -schk "$filepath" | awk '/total$/{print $1}')
 	[ $dirsize -gt 100000 ] && _notify "Large file: please wait..." "$filename"
 	bsize=$(echo "$dirsize * 1024" | bc)
-	mbsizeraw=$(bc -l <<< "scale=6; $bsize/1000000")
-	mbsize=$(_round "$mbsizeraw" 2)
-	if [[ "$mbsize" == "0.00" ]] ; then
-		mbsize="< 0.01"
-	fi
-	mibsizeraw=$(bc -l <<< "scale=6; $bsize/1048576")
-	mibsize=$(_round "$mibsizeraw" 2)
-	if [[ "$mibsize" == "0.00" ]] ; then
-		mibsize="< 0.01"
-	fi
-	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
-	echo -e "size on disk:\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
+	_sizes
 fi
 
 echo -e "file type:\t$filetype" >> "$tmploc"
@@ -1015,10 +1155,15 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			skid="UNSIGNED"
 			certsec="$skid"
 		else
-			_beep
-			skid="CS_CERTS_MISSING"
-			certsec="POSSIBLE MALWARE: $skid"
-			_notify "⚠️ Possible malware!" "$filename"
+			if [[ $(echo "$csign" | grep "^Signature=adhoc") != "" ]] ; then
+				skid="SKID_NOT_AVAILABLE"
+				certsec="n/a"
+			else
+				_beep
+				skid="CS_CERTS_MISSING"
+				certsec="POSSIBLE MALWARE: $skid"
+				_notify "⚠️ Possible malware!" "$filename"
+			fi
 		fi
 	fi
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
@@ -1141,6 +1286,39 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	fi
 
+	# check image encryption & verify
+	if [[ $extension =~ ^(dmg|sparsebundle|sparseimage)$ ]] ; then
+		encrypted=$(hdiutil isencrypted "$filepath" 2>&1 | awk -F": " '/^encrypted/{print $2}')
+		if [[ $encrypted == "NO" ]] ; then
+			hdinfo=$(hdiutil imageinfo "$filepath" 2>&1)
+			if [[ $(echo "$hdinfo" | grep "image not recognized$") != "" ]] ; then
+				echo -e "hdiutil:\tFAILED: image not recognized\n" >> "$tmploc"
+				_beep
+				_notify "❌ Image not recognized!" "$filename"
+			else
+				hdiverify=$(hdiutil verify "$filepath" 2>&1)
+				if [[ $(echo "$hdiverify" | grep "has no checksum\.$") != "" ]] ; then
+					echo -e "hdiutil:\tNO CHECKSUM" >> "$tmploc"
+				else
+					hdiresult=$(echo "$hdiverify" | grep "^hdiutil: verify: checksum" | rev | awk '{print $1}' | rev)
+					if [[ $hdiresult == "INVALID" ]] ; then
+						hdihash=$(echo "$hdiverify" | grep "^calculated" | xargs)
+						_beep
+						_notify "❌ Image verification invalid!" "$filename"
+					else
+						hdihash=$(echo "$hdiverify" | grep "^verified" | awk '{print substr($0, index($0,$2))}')
+					fi
+					echo -e "hdiutil:\t$hdiresult: $hdihash" >> "$tmploc"
+				fi
+				hdiformat=$(echo "$hdinfo" | awk -F": " '/^Format:/{print substr($0, index($0,$2))}' | xargs)
+				hdidescr=$(echo "$hdinfo" | awk -F": " '/^Format Description:/{print substr($0, index($0,$2))}' | xargs)
+				echo -e "\t\t$hdiformat: $hdidescr\n" >> "$tmploc"
+			fi
+		else
+			echo -e "hdiutil:\tENCRYPTED: cannot scan\n" >> "$tmploc"
+		fi
+	fi
+
 	# print download sources
 	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
 	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
@@ -1162,22 +1340,18 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo -e "hashes:\t\tn/a\n" >> "$tmploc"
 	else
 		if [[ $filetype == "directory" ]] ; then # not a single file: need to hash the executable
-			md5hash=$(md5 -q "$executable")
-			echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-			sha1hash=$(shasum -a 1 "$executable" | awk '{print $1}')
-			echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-			sha2hash=$(shasum -a 256 "$executable" | awk '{print $1}')
-			echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-			vthash="$sha2hash"
+			if [[ -h "$executable" ]] ; then
+				execsym="$executable"
+				executable=$(abspath "$executable")
+			else
+				execsym=""
+			fi
+			execsub=$(echo "$executable" | sed "s-^$filepath-\.-")
+			echo -e "executable:\t$execsub" >> "$tmploc"
+			_hashes "$executable"
 		else # single file: can check against hash stored in clipboard
 			if ! $clipped ; then
-				md5hash=$(md5 -q "$filepath")
-				echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-				sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
-				echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-				sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
-				echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-				vthash="$sha2hash"
+				_hashes "$filepath"
 			else
 				_cscomp
 			fi
@@ -1189,10 +1363,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		_virustotal "$vthash"
 	fi
 
-	# echo security verification result
-	echo -e "verification:\t$certsec\n" >> "$tmploc"
-
-	# bundle IDs etc.
+	# bundle & signature identifiers
 	if ! $unsigned ; then
 		if [[ $filetype == "directory" ]] ; then # determine bundle identifier or fallback bundle name
 			cfbid=$(defaults read "$filepath$iplistpath" CFBundleIdentifier 2>/dev/null)
@@ -1208,34 +1379,65 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 					fi
 				fi
 			fi
-		else # single file can't have a bundle identifier, i.e. copy the ID in the code signature
-			cfbid="$csid"
-		fi
-
-		if [[ $filetype == "directory" ]] ; then
 			if [[ $cfbid == $csid ]] ; then
-				echo -e "identifiers:\tmatch\n" >> "$tmploc"
+				echo -e "identifiers:\tmatch ($cfbid)\n" >> "$tmploc"
 				idmatch=true
 			else
 				echo -e "identifiers:\tMISMATCH" >> "$tmploc"
 				echo -e "bundle:\t\t$cfbid" >> "$tmploc"
-				echo -e "signature:\t$csid\n" >> "$tmploc"
+				echo -e "signature:\t\t$csid\n" >> "$tmploc"
 				_beep
 				_notify "⚠️ ID mismatch!" "$filename"
 			fi
+		else # single file can't have a bundle identifier, i.e. copy the ID in the code signature
+			cfbid="$csid"
 		fi
+	fi
 
-		# read previously scanned SKID from sqlite database
+	# codesign verification
+	if ! $unsigned ; then
+		csverify_raw=$(codesign --verify --verbose "$filepath" 2>&1)
+		csverify_all=$(echo "$csverify_raw" | grep "^$filepath: " | awk -F": " '{print $2}')
+		count=1
+		while read -r csverify
+		do
+			if [[ $count == "1" ]] ; then
+				echo -e "verification:\t$csverify" >> "$tmploc"
+			else
+				echo -e "\t\t$csverify" >> "$tmploc"
+			fi
+			(( count++ ))
+		done < <(echo "$csverify_all")
+		csverify_alt=$(echo "$csverify_raw" | grep -v "^$filepath: ")
+		if [[ "$csverify_alt" != "" ]] ; then
+			_beep
+			_notify "⚠️ Code signing issues!" "$filename"
+			while read -r acsverify
+			do
+				acsverify=$(echo "$acsverify" | sed "s-: $filepath-: \.-")
+				echo -e "\t\t$acsverify" >> "$tmploc"
+			done < <(echo "$csverify_alt")
+		fi
+		echo "" >> "$tmploc"
+	else
+		echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
+	fi
+
+	# echo security verification result
+	echo -e "security:\t$certsec" >> "$tmploc"
+
+	# subject key identifiers
+	if ! $unsigned ; then # read previously scanned SKID from sqlite database
 		oldskid=$(sqlite3 "$dbloc" "select skid from WhatsYourSign where cfbid=\"$cfbid\";")
 		if [[ $oldskid == "" ]] ; then # none found, i.e. initial scan and write to database
 			sqlite3 "$dbloc" "insert into WhatsYourSign (cfbid,csid,skid) values (\"$cfbid\",\"$csid\",\"$skid\");"
-			echo -e "SKIDs:\t\t[initial scan]\n" >> "$tmploc"
+			echo -e "SKIDs:\t\tinitial scan: $skid\n" >> "$tmploc"
 		else # compare SKIDs
 			if [[ $skid == $oldskid ]] ; then
 				if [[ $skid == "SKID_NOT_AVAILABLE" ]] ; then
 					echo -e "SKIDs:\t\t$skid\n" >> "$tmploc"
 				else
-					echo -e "SKIDs:\t\tmatch\n" >> "$tmploc"
+					echo -e "SKIDs:\t\tmatch: $skid\n" >> "$tmploc"
 				fi
 			else
 				echo -e "SKIDs:\t\tMISMATCH" >> "$tmploc"
@@ -1250,6 +1452,8 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				fi
 			fi
 		fi
+	else
+		echo "" >> "$tmploc"
 	fi
 
 	# default gatekeeper info (valid results only for bundle root)
@@ -1275,7 +1479,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			[[ $signature == "" ]] && signature="n/a"
 			[[ $csid == "" ]] && csid="n/a"
 			teamid=$(echo "$csign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
-			echo -e "sign:\t\t$signature ($csid)" >> "$tmploc"
+			echo -e "sign auth:\t$signature ($csid)" >> "$tmploc"
 		else
 			cscs=$(echo "$csign" | grep "Authority=" | awk -F= '{print $2}')
 			count=1
@@ -1328,7 +1532,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo -e "sign auth:\tUNSIGNED" >> "$tmploc"
 	fi
 
-	# scan for executable files ### IMPROVE AS DEEP-SCAN
+	# scan for executable files ### IMPROVE AS DEEP-SCAN (v1.1)
 	if [[ $filetype == "directory" ]] ; then
 		if [[ $executable != "" ]] ; then
 
@@ -1360,11 +1564,11 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 					if [[ $xfleafcert == "" ]] ; then
 						xfleafcert=$(echo "$xfcsign" | grep "^Signature=" | awk -F= '{print $2}' | head -1)
 						[[ $xfleafcert == "" ]] && xfleafcert="n/a"
-						xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
+						xfothersign="$xfothersign\n.$execfile: $xfleafcert"
 					else
 						xfteamid=$(echo "$xfcsign" | grep "^TeamIdentifier=" | awk -F= '{print $2}')
-						if [[ $xfleafcert != $leafcert ]] || [[ $xfteamid != $teamid ]] ; then
-							xfothersign="$xfothersign\n$xfleafcert:\t.$execfile"
+						if [[ $xfleafcert != $leafcert ]] && [[ $xfteamid != $teamid ]] ; then
+							xfothersign="$xfothersign\n.$execfile: $xfleafcert"
 						fi
 					fi
 				fi
@@ -1420,13 +1624,7 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
 	# calculate hashes/checksums
 	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
-		md5hash=$(md5 -q "$filepath")
-		echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-		sha1hash=$(shasum -a 1 "$filepath" | awk '{print $1}')
-		echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-		sha2hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
-		echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-		vthash="$sha2hash"
+		_hashes "$filepath"
 	else # clipboard hash detected and hash compare
 		_cscomp
 	fi
@@ -1569,20 +1767,29 @@ $stmploc_body
 $utmploc_body
 *** end of scan ***"
 	logbody=$(echo "$logbody" | grep -v "^$" | ruby -pe '$_.gsub!(/\t/," ")' | sed 's/:  /: /g' | sed 's/  /   /g')
-	logger -i -s -t local.lcars.wys "$logbody" 2>> "$logdir/$filename.log"
+	if [[ $cfbid == $shortname ]] || [[ $cfbid == "" ]] ; then
+		logfilename="$filename.log"
+	else
+		logfilename="$cfbid.log"
+	fi
+	logger -i -s -t local.lcars.wys "$logbody" 2>> "$logdir/$logfilename"
 fi
 
-if $umany ; then
-	qlmanage -p "$utmploc" >/dev/null &
+if ! $silent ; then
+	if $umany ; then
+		qlmanage -p "$utmploc" >/dev/null &
+	fi
+	if $smany ; then ### REMOVE FOR DEEP-SCAN
+		qlmanage -p "$stmploc" >/dev/null &
+	fi
+	qlmanage -p "$tmploc" >/dev/null &
+	wait
 fi
-if $smany ; then ### REMOVE FOR DEEP-SCAN
-	qlmanage -p "$stmploc" >/dev/null &
-fi
-qlmanage -p "$tmploc" >/dev/null &
-wait
 
 rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
 
 done
+
+$silent && echo "Done."
 
 exit
