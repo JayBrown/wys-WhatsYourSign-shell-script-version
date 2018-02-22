@@ -18,7 +18,7 @@ Full functionality including signature verification is available for bundles (e.
 * compares a file hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
 * checks the calculated hash (file or executable) against the VirusTotal database for malware detection (optional),
 * verifies code signing certificates (CSCs) against the current revocation list using `security` and accounts for potentially spoofed code signatures,
-* verifies installer package signing certificates (IPSCs) against the current revocation list using `security` and accounts for potentially spoofed code signatures,
+* verifies installer package signing certificates (IPSCs) against the current revocation list using `security` and accounts for potentially spoofed signatures,
 * compares the CFBundleIdentifier with the identifier in the code signature,
 * creates a local sqlite database of any scanned CFBundleIdentifier and the associated SKID in the CSC, and compares successive scan data with the saved data,
 * prints Gatekeeper `spctl` assessment (packages: `install`; other: `execute`) and the associated source information,
@@ -27,7 +27,7 @@ Full functionality including signature verification is available for bundles (e.
 * deep-scans a bundle to find
   * executable files that are unsigned, or
   * that have a different code signature than the main executable, and
-* permanently writes the scan results to log files (optional).
+* permanently writes the scan results to log files (optional, recommended).
 
 ## Installation
 If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the extended functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
@@ -64,8 +64,8 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 ## Scan options
 
 ### Command line operation and configuration
-* move, copy or symlink **wys** into your `$PATH` and configure
-* the following command line options and arguments are available:
+* Move, copy or (best practice) clone the repository and symlink **wys** into your `$PATH`, then configure using the CLI options.
+* The following command line options and arguments are available:
 
 ```
 wys [<file(path) 1> ... <file(path) n>]		scan filepath(s) or file(s) from the command line
@@ -85,16 +85,16 @@ Options:
 ```
 
 ### Alternative configuration (GUI usage)
-* run **wys** at least once to create the default wys configuration file
-* run the command `open -a TextEdit ~/.wys/config` to open the config file, or open it manually
+* Run **wys** at least once to create the default wys configuration file, then
+* run the command `open -a TextEdit ~/.wys/config` to open the config file, or open it manually.
 
 #### Enable logging
-* in the **wys config file** replace `report=no` with `report=yes` and **save**
-* logs will be stored in `~/Library/Logs/wys` and will be accessible via Apple's **Console** application
+* In the **wys config file** replace `report=no` with `report=yes` and **save**.
+* Logs will be stored in `~/Library/Logs/wys` and will be accessible via Apple's **Console** application.
 
 #### Silent mode
-* in the **wys config file** replace `silent=no` with `silent=yes` and **save**
-* **wys** will then scan silently in the background and only log the SKIDs and the scan results (if logging is enabled)
+* In the **wys config file** replace `silent=no` with `silent=yes` and **save**.
+* **wys** will then scan silently in the background and only log the SKIDs and (if logging is enabled) the scan results as well.
 
 #### VirusTotal API key
 In the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**.
@@ -102,10 +102,10 @@ In the **wys config file** look for the line that begins with `vtkey=`, paste th
 ## Uninstall
 To uninstall, you need to remove the following files:
 
-* **wys** itself
-* wys GitHub directory (if you have cloned it)
-* `~/.wys` (contains the config file, the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI)
-* `~/Library/Logs/wys` (contains the log files)
+* **wys** itself,
+* the wys GitHub directory (if you have cloned it),
+* the hidden directory `~/.wys`, which contains the config file, the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI), and
+* `~/Library/Logs/wys`, which contains the log files.
 
 Temporary files in `/tmp` will be automatically removed by **wys** after every scan, and potential detritus will be removed at macOS boot.
 
