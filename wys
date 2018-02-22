@@ -1117,7 +1117,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 	cd /tmp
 	csign=$(codesign -dvvvv --requirements - --entitlements - --extract-certificates "$filepath" 2>&1)
-	### cd /
+	cd /
 
 	# check if codesigned
 	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] || [[ $(echo "$csign" | grep "unrecognized, invalid, or unsuitable") != "" ]] ; then # for unsigned items
@@ -1546,7 +1546,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			# regular files only, executable permissions, don't follow symlinks
 			cd "$filepath"
 			execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
-			### cd /
+			cd /
 			xfnumber=$(echo "$execfiles" | wc -l | xargs)
 			[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
 
