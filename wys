@@ -124,7 +124,7 @@ elif [[ $1 == "--status" ]] ; then
 	fi
 	exit
 elif [[ $1 == "--help" ]] ; then
-	echo -e "wys $version$bversion\n\n--init:\t\tinitialize wys\n--silent:\tenable silent mode override\n--status:\tprint config status\n\n--config [vt | report | silent]:\tmodify configuration file\n\tvt <key>:\tenter VirusTotal API key\n\treport:\t\tenable logging\n\tsilent:\t\tenable silent mode"
+	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan file(paths) from the command line\n\nOptions:\n\n--init\t\tinitialize wys\n--silent\tenable silent mode override\n--status\tprint config status\n\n--config [report | silent | vt <key>]\t\tmodify configuration file\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
 	exit
 elif [[ $1 == "--silent" ]] || [[ $1 == "--quiet" ]] ; then
 	echo "wys: silent mode override enabled for current scans."

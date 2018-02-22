@@ -13,7 +13,8 @@ It works with bundles (e.g. applications, extensions etc.), binaries/executables
 * generally works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.), i.e. you can safely scan a file or application on its mounted DMG volume before copying it,
 * prints the file size (B, MB, MiB) for regular files (data size) and directories (size on disk),
 * prints the download source domain names, so the user can detect potential temporary redirects,
-* compares a hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
+* verifies DMG checksums and prints disk image information on DMGs, sparsebundles and sparseimages,
+* compares a file hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
 * checks the calculated hash against the VirusTotal database for malware detection (optional),
 * verifies codesigning and installer package signing certificates against the current revocation list using `security`—
   * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
@@ -50,13 +51,45 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 ### Usage in default macOS Finder
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
 
-### Scan options
+### VirusTotal API key
+* create a free online account at **[VirusTotal](https://www.virustotal.com)**
+* in your browser navigate: VirusTotal > Account > Profile > API Key
+* copy key and configure **wys** accordingly (*see below*)
+
+## Scan options
+
+### Command line operation and configuration
+* move, copy or symlink **wys** into your `$PATH` and configure
+* the following command line options and arguments are available:
+
+```
+wys [<file(path) 1> ... <file(path) n>]		scan file(paths) from the command line
+
+Options:
+
+--init		initialize wys
+--silent	enable silent mode override
+--status	print config status
+
+--config [report | silent | vt <key>]		modify configuration file
+	report		toggle logging
+	silent		toggle silent mode
+	vt <key>	enter VirusTotal API key
+
+--help		this help page
+```
+
+### Alternative configuration (GUI usage)
 * run **wys** at least once to create the default wys configuration file
-* run the command `open -a TextEdit ~/.wys/config` to open the config file
+* run the command `open -a TextEdit ~/.wys/config` to open the config file, or open it manually
 
 #### Enable logging
 * in the **wys config file** replace `report=no` with `report=yes` and **save**
 * logs will be stored in `~/Library/Logs/wys` and will be accessible via Apple's **Console** application
+
+#### Silent mode
+* in the **wys config file** replace `silent=no` with `silent=yes` and **save**
+* **wys** will then scan silently in the background and only log the SKIDs and the scan results (if logging is enabled)
 
 #### VirusTotal API key
 * create a free online account at **[VirusTotal](https://www.virustotal.com)**
