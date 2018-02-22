@@ -47,9 +47,9 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
 
 ### VirusTotal API key
-* create a free online account at **[VirusTotal](https://www.virustotal.com)**
-* in your browser navigate: VirusTotal > Account > Profile > API Key
-* copy key and configure **wys** accordingly (*see below*)
+* Create a free online account at **[VirusTotal](https://www.virustotal.com)**;
+* in your browser navigate: VirusTotal > Account > Profile > API Key;
+* copy the key and configure **wys** accordingly (*see below*).
 
 ### Notes
 * It probably helps to set OCSP and CRL to "Best attempt" in **macOS Keychain Access** > Preferences > Certificates.
@@ -104,7 +104,7 @@ To uninstall, you need to remove the following files:
 
 * **wys** itself,
 * the wys GitHub directory (if you have cloned it),
-* the hidden directory `~/.wys`, which contains the config file, the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI), and
+* the invisible directory `~/.wys`, which contains the config file, the SKID database, the wys icon, and the `./bin` directory with the `abspath` CLI), and
 * `~/Library/Logs/wys`, which contains the log files.
 
 Temporary files in `/tmp` will be automatically removed by **wys** after every scan, and potential detritus will be removed at macOS boot.
