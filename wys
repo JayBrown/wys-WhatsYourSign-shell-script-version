@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta20
+# wys v1.0 beta21
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -985,7 +985,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# deal with extracted DER certificates
 	certfsize=$(stat -f%z /tmp/codesign0 2>/dev/null)
-	if [[ -f /tmp/codesign0 ]] || [[ $certfsize == "0" ]]; then
+	if [[ -f /tmp/codesign0 ]] && [ $certfsize -gt 0 ] ; then
 
 		# read subject key identifier
 		skid=$(openssl x509 -in /tmp/codesign0 -inform DER -noout -text -fingerprint | grep -A1 "Subject Key Identifier" | tail -1 | xargs | sed s/://g)
@@ -1012,9 +1012,8 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	else
 		if $unsigned ; then
-			skid="SKID_NOT_AVAILABLE"
+			skid="UNSIGNED"
 			certsec="$skid"
-
 		else
 			_beep
 			skid="CS_CERTS_MISSING"
@@ -1326,7 +1325,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 
 	else
-		echo -e "sign auth:\tunsigned" >> "$tmploc"
+		echo -e "sign auth:\tUNSIGNED" >> "$tmploc"
 	fi
 
 	# scan for executable files ### IMPROVE AS DEEP-SCAN
@@ -1432,6 +1431,18 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		_cscomp
 	fi
 
+	# check signature with pkgutil standard tool
+	pkginfo=$(pkgutil --check-signature "$filepath")
+
+	# security status
+	pkgstat=$(echo "$pkginfo" 2>&1 | awk -F": " '/Status:/{print $2}')
+	[[ $pkgstat == "" ]] && pkgstat="n/a"
+	if [[ $pkgstat == "no signature" ]] ; then
+		unsigned=true
+	else
+		unsigned=false
+	fi
+
 	# check hash at VirusTotal
 	$vtaccess && _virustotal "$vthash"
 
@@ -1447,15 +1458,10 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		| awk '{gsub("BEGINCERTIFICATE-----","BEGIN CERTIFICATE-----\n"); gsub("-----ENDCERTIFICATE","\n-----END CERTIFICATE"); print}' \
 		| csplit -k -s -n 1 -f "$certdir/$filename"-cert - '/END CERTIFICATE/+1' '{3}' 2>/dev/null
 	for cert in "$certdir/$filename-cert"* ; do
-		if [[ $(cat "$cert") == "" ]] ; then
-			rm -f "$cert"
-		else
-			mv "$cert" "$cert.pem"
-		fi
+		mv "$cert" "$cert.pem" 2>/dev/null
 	done
-	if ! [[ -f "$certdir/$filename-cert0.pem" ]] ; then
-		certsec="n/a"
-	else # verify IPSC with keychain tool (security)
+	certfsize=$(stat -f%z "$certdir/$filename-cert0.pem" 2>/dev/null)
+	if [[ -f "$certdir/$filename-cert0.pem" ]] && [ $certfsize -gt 0 ] ; then # verify IPSC with keychain tool (security)
 		certsecall=$(security verify-cert -c "$certdir/$filename-cert0.pem" 2>&1)
 		if [[ $(echo "$certsecall" | grep "Cert Verify Result:") != "" ]] ; then
 			certsec=$(echo "$certsecall" | awk -F": " '{print $2}')
@@ -1474,19 +1480,19 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 			_beep
 			_notify "❌ Certificate denied trust!" "$filename"
 		fi
+	else
+		if $unsigned ; then
+			certsec="UNSIGNED"
+		else
+			_beep
+			certsec="POSSIBLE MALWARE: IPS_CERTS_MISSING"
+			_notify "⚠️ Possible malware!" "$filename"
+		fi
 	fi
 
 	echo -e "verification:\t$certsec\n" >> "$tmploc"
 
 	rm -rf "$certdir" 2>/dev/null
-
-	# check signature with pkgutil standard tool
-	pkginfo=$(pkgutil --check-signature "$filepath")
-
-	# security status
-	pkgstat=$(echo "$pkginfo" | awk -F": " '/Status:/{print $2}')
-	[[ $pkgstat == "" ]] && pkgstat=""
-	echo -e "status:\t\t$pkgstat" >> "$tmploc"
 
 	# originating macOS user (creator)
 	cusers=$(echo "$pkgheader" | grep "<user>" | awk -F">" '{print $2}' | awk -F"</" '{print $1}' | grep -v "^$" | sort -u)
@@ -1509,6 +1515,9 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		done < <(echo "$cusers")
 	fi
 
+	# echo security status
+	echo -e "status:\t\t$pkgstat" >> "$tmploc"
+
 	# gatekeeper info (install)
 	spctlall=$(spctl -a -t install --context context:primary-signature -v "$filepath" 2>&1)
 
@@ -1524,7 +1533,7 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	# parse certificate chain
 	pkgsig=$(echo "$pkginfo" | sed -n -e '/Certificate Chain:/,$p' | grep "^.*[0-9]\." | awk -F. '{print substr($0, index($0,$2))}' | sed -e 's/^[ \t]*//' | grep -v "^$")
 	if [[ $pkgsig == "" ]] ; then
-		echo -e "sign auth:\tunsigned" >> "$tmploc"
+		echo -e "sign auth:\tUNSIGNED" >> "$tmploc"
 	else
 		count=1
 		while read -r cert
