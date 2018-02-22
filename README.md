@@ -14,25 +14,20 @@ Full functionality including signature verification is available for bundles (e.
 * prints the file size (B, MB, MiB) for regular files (data size) and directories (size on disk),
 * prints the download source domain names, so the user can detect potential temporary redirects,
 * verifies DMG checksums and prints disk image information on DMGs, sparsebundles and sparseimages,
+* verifies a signed bundle for modified files with `codesign`,
 * compares a file hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
-* checks the calculated hash against the VirusTotal database for malware detection (optional),
-* verifies codesigning and installer package signing certificates against the current revocation list using `security`—
-  * *note*: I'm assuming that it helps to set OCSP and CRL to "Best attempt" in **Keychain Access** > Preferences > Certificates—,
+* checks the calculated hash (file or executable) against the VirusTotal database for malware detection (optional),
+* verifies code signing certificates (CSCs) against the current revocation list using `security` and accounts for potentially spoofed code signatures,
+* verifies installer package signing certificates (IPSCs) against the current revocation list using `security` and accounts for potentially spoofed code signatures,
 * compares the CFBundleIdentifier with the identifier in the code signature,
-* creates a local database of any scanned CFBundleIdentifier and codesigning SKID, and compares successive scan data with the saved data,
-* prints `spctl` assessment (packages: `install`; other: `execute`),
-* prints the codesigning timestamp or signing time (depending on the signature),
-* prints the signing timestamp and creator from a package's TOC,
-* deep-scans a bundle, similar to **RB AppChecker Lite**, to find
+* creates a local sqlite database of any scanned CFBundleIdentifier and the associated SKID in the CSC, and compares successive scan data with the saved data,
+* prints Gatekeeper `spctl` assessment (packages: `install`; other: `execute`) and the associated source information,
+* prints a CSC's timestamp or signing time (depending on the signature),
+* prints an IPSC's signing timestamp and creator from a package's TOC,
+* deep-scans a bundle to find
   * executable files that are unsigned, or
-  * that are codesigned differently from the main executable, and
+  * that have a different code signature than the main executable, and
 * permanently writes the scan results to log files (optional).
-
-**Note:** the SKID comparison will occasionally produce false negatives, because a SKID (a certificate's **Subject Key Identifier**) can change for perfectly valid reasons, for example because the developer of a software has
-
-* renewed an expired certificate,
-* sold his product to another developer, or
-* received a new certificate (e.g. after company rebranding etc.).
 
 ## Installation
 If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's software, unless you need the extended functionality. The **wys** version is only meant as a quick hack for users who have disabled the Finder. Since the original **WhatsYourSign** is an `appex` (Finder extension), it will not work in other file managers.
@@ -56,6 +51,16 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 * in your browser navigate: VirusTotal > Account > Profile > API Key
 * copy key and configure **wys** accordingly (*see below*)
 
+### Notes
+* It probably helps to set OCSP and CRL to "Best attempt" in **macOS Keychain Access** > Preferences > Certificates.
+* The SKID comparison will occasionally produce false warnings, because a SKID (a certificate's **Subject Key Identifier**) can change for perfectly valid reasons, for example because the developer of a software has
+  * renewed an expired certificate,
+  * sold his product to another developer, or
+  * received a new certificate (e.g. after company rebranding etc.).
+* VirusTotal results can also produce false warnings, depending on the antivirus software involved; examples are:
+  * **BBEdit:** VEX189B.Webshell (Bkav);
+  * false positives like applications with `libswiftDispatch.dylib` marked as MacOS.BitCoinMiner-AS (Avast, AVG).
+
 ## Scan options
 
 ### Command line operation and configuration
@@ -63,15 +68,15 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 * the following command line options and arguments are available:
 
 ```
-wys [<file(path) 1> ... <file(path) n>]		scan file(paths) from the command line
+wys [<file(path) 1> ... <file(path) n>]		scan filepath(s) or file(s) from the command line
 
 Options:
 
 --init		initialize wys
---silent	enable silent mode override
---status	print config status
+--silent	force silent mode for current scans
+--status	print wys configuration status
 
---config [report | silent | vt <key>]		modify configuration file
+--config [report | silent | vt <key>]		modify wys configuration file
 	report		toggle logging
 	silent		toggle silent mode
 	vt <key>	enter VirusTotal API key
@@ -104,107 +109,14 @@ To uninstall, you need to remove the following files:
 
 Temporary files in `/tmp` will be automatically removed by **wys** after every scan, and potential detritus will be removed at macOS boot.
 
+## [Screengrabs](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/screengrabs.md)
+
 ## Beta status
 * still needs general testing, lots of testing
-* timestamp information in Info.plist? (research)
-* deep scan: parse CodeResources to check for modified and unverified/added files (probably)
-* might need a one-line result at the top, similar to WhatsYourSign appex (probably not)
+* timestamp information in Info.plist? (research); approximate?
+* deep scan: parse CodeResources to thoroughly check for modified and unverified/added files (v1.1)
 
 ## Thank you
 * Patrick Wardle (for the original **WhatsYourSign** and all his other great security tools)
 * lososik (feature ideas & testing)
 * Daniel Beck (`abspath`)
-
-## Screengrabs
-
-#### Checksum for installer package verified from clipboard
-
-![grab18](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-verify.jpg)
-
-#### Warning of SKID mismatch and certificate revocation (KeRanger)
-
-![grab19](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-skidrevoke.jpg)
-
-#### Application signed with Developer ID
-
-![grab1](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app.jpg)
-
-#### Malware application (KeRanger) with revoked certificate and SKID mismatch
-*Notice the SKID mismatch, i.e. the SKID from the code signature used by the attacker differs from the original certificate by the Transmission developer.*
-
-*Notice the bogey RTF file, which is actually an executable part of the ransomware scheme.*
-
-![grab2](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware.jpg)
-
-#### Malware application (OSX.CreativeUpdater) with fake codesigning certificate and SKID mismatch
-*Compare the main executable code signature (added by attacker) with the other signature (original by Mozilla), i.e. this is a legit app bundle within a malware app bundle to fool the user.*
-
-*Notice the bogey `script` file, which starts the download of the cryptominer malware.*
-
-*Please note that the security assessment using `spctl` can still accept a codesigning certificate, while the more up-to-date verification with `security` already shows it as revoked.*
-
-![grab13](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-malware2.jpg)
-
-#### Application with entitlements (Apple System)
-
-*Notice that there is no CRL (certificate revocation list) for Apple System signatures (leaf certificate: "Software Signing"), so let's hope none of Apple's private codesigning keys ever get leaked.*
-
-![grab3](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-entitlements.jpg)
-
-#### Application with entitlements (Mac App Store)
-
-![grab10](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-mas.jpg)
-
-#### Application with valid but expired codesigning certificate
-
-![grab20](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-expired.jpg)
-
-#### Application with untrusted third-party code signature and missing SKID
-
-![grab17](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-3rdparty.jpg)
-
-#### Adhoc-signed application with missing SKID
-
-![grab9](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-adhoc.jpg)
-
-#### Unsigned application
-
-![grab8](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-unsigned.jpg)
-
-#### Kernel extension
-
-![grab16](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-kext.jpg)
-
-#### Codesigned command line interface with initial SKID scan
-
-![grab6](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-binary.jpg)
-
-#### Codesigned disk image (DMG)
-
-![grab4](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmg.jpg)
-
-#### Malware disk image (DMG) with hash mismatch and signed with a fake code signature
-
-![grab12](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-dmgfake.jpg)
-
-#### Signed installer package
-
-![grab5](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-pkg.jpg)
-
-#### xip archive with verified hash and signed with Developer ID
-
-![grab11](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip.jpg)
-
-#### xip archive signed with locally trusted key
-
-![grab14](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-xip-user.jpg)
-
-#### Application with cracked executables using proprietary code signatures
-*Notice that the main code signature is unchanged: the SKID comparison shows a match.*
-
-![grab7](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked.jpg)
-
-#### Auxiliary list with unsigned executable files
-*Note that some developers erroneously set the executable bits on files that do not need it; this really messes things up, and *wys* scans will take longer in these cases.*
-
-![grab15](https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version/blob/master/img/grab_wys-app-cracked-aux.jpg)

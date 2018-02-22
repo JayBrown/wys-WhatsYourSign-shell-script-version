@@ -44,7 +44,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.0"
-bversion=" beta 22"
+bversion=" beta 23"
 
 # command line options
 silentoverride=false
@@ -124,7 +124,7 @@ elif [[ $1 == "--status" ]] ; then
 	fi
 	exit
 elif [[ $1 == "--help" ]] ; then
-	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan file(paths) from the command line\n\nOptions:\n\n--init\t\tinitialize wys\n--silent\tenable silent mode override\n--status\tprint config status\n\n--config [report | silent | vt <key>]\t\tmodify configuration file\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
+	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan filepath(s) or file(s) from the command line\n\nOptions:\n\n--init\t\tinitialize wys\n--silent\tforce silent mode for current scans\n--status\tprint wys configuration status\n\n--config [report | silent | vt <key>]\t\tmodify wys configuration file\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
 	exit
 elif [[ $1 == "--silent" ]] || [[ $1 == "--quiet" ]] ; then
 	echo "wys: silent mode override enabled for current scans."
