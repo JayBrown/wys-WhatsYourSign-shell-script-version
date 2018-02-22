@@ -92,10 +92,7 @@ Options:
 * **wys** will then scan silently in the background and only log the SKIDs and the scan results (if logging is enabled)
 
 #### VirusTotal API key
-* create a free online account at **[VirusTotal](https://www.virustotal.com)**
-* in your browser navigate: VirusTotal > Account > Profile > API Key
-* copy the API Key
-* in the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**
+In the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**.
 
 ## Uninstall
 To uninstall, you need to remove the following files:
