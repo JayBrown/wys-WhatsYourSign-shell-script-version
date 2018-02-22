@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta19
+# wys v1.0 beta20
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -713,8 +713,8 @@ _virustotal () {
 			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority [$vthits hits]\n" >> "$tmploc"
 		else
 			if [[ $vthits == "1" ]] ; then
-				_notify "⚠️ Malware issues!" "$filename"
-				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority [$vthits hit]\n" >> "$tmploc"
+				_notify "⚠️ Malware issue!" "$filename"
+				echo -e "VirusTotal:\tMALWARE ISSUE: $vtmajority [$vthits hit]\n" >> "$tmploc"
 			elif [[ $vthits == "2" ]] ; then
 				_notify "⚠️ Malware issues!" "$filename"
 				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority [$vthits hits]\n" >> "$tmploc"
@@ -973,10 +973,19 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	# read code signature and dump certificates to /tmp
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 	cd /tmp
-	csign=$(codesign -dvvvv --entitlements - --extract-certificates "$filepath" 2>&1)
+	csign=$(codesign -dvvvv --requirements - --entitlements - --extract-certificates "$filepath" 2>&1)
 	cd /
 
-	if [[ -f /tmp/codesign0 ]] ; then
+	# check if codesigned
+	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] || [[ $(echo "$csign" | grep "unrecognized, invalid, or unsuitable") != "" ]] ; then # for unsigned items
+		unsigned=true
+	else
+		unsigned=false
+	fi
+
+	# deal with extracted DER certificates
+	certfsize=$(stat -f%z /tmp/codesign0 2>/dev/null)
+	if [[ -f /tmp/codesign0 ]] || [[ $certfsize == "0" ]]; then
 
 		# read subject key identifier
 		skid=$(openssl x509 -in /tmp/codesign0 -inform DER -noout -text -fingerprint | grep -A1 "Subject Key Identifier" | tail -1 | xargs | sed s/://g)
@@ -1002,18 +1011,24 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			_notify "❌ Certificate denied trust!" "$filename"
 		fi
 	else
-		certsec="n/a"
-		skid="SKID_NOT_AVAILABLE"
-	fi
+		if $unsigned ; then
+			skid="SKID_NOT_AVAILABLE"
+			certsec="$skid"
 
+		else
+			_beep
+			skid="CS_CERTS_MISSING"
+			certsec="POSSIBLE MALWARE: $skid"
+			_notify "⚠️ Possible malware!" "$filename"
+		fi
+	fi
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 
 	# identifier in the code signature
 	csid=$(echo "$csign" | grep "^Identifier=" | awk -F= '{print $2}')
 
 	# determine executable
-	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] || [[ $(echo "$csign" | grep "unrecognized, invalid, or unsuitable") != "" ]] ; then # for unsigned items
-		unsigned=true
+	if $unsigned ; then # for unsigned items
 		if [[ $filetype != "directory" ]] ; then # no bundle
 			executable=""
 			executablename=""
