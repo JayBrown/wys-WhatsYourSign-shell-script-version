@@ -132,6 +132,12 @@ elif [[ $1 == "--silent" ]] || [[ $1 == "--quiet" ]] ; then
 	shift
 fi
 
+# check if path is valid (for command line usage)
+if [[ $@ == "" ]] ; then
+	echo "No filepaths specified." >&2
+	exit
+fi
+
 crlrefresh rp 2>/dev/null
 
 process="wys"
@@ -750,12 +756,6 @@ fi
 # temporary subdirectory for certificate dumps
 certdir="/tmp/wys-certs"
 rm -rf "$certdir" 2>/dev/null
-
-# check if path is valid (for command line usage)
-if [[ $@ == "" ]] ; then
-	echo "No filepaths specified."
-	exit
-fi
 
 # notify function
 _notify () {
