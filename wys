@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta22
+# wys v1.0 beta23
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -955,8 +955,12 @@ _virustotal () {
 iplistpath="/Contents/Info.plist"
 iplistlocs="Contents/Info.plist\nResources/Info.plist\nInfo.plist"
 
+workingdir="$PWD"
+
 for filepath in "$@"
 do
+
+filepath=$(abspath "$filepath")
 
 scandate=$(date)
 
@@ -1113,7 +1117,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	rm -f /tmp/codesign+([0-9]) 2>/dev/null
 	cd /tmp
 	csign=$(codesign -dvvvv --requirements - --entitlements - --extract-certificates "$filepath" 2>&1)
-	cd /
+	### cd /
 
 	# check if codesigned
 	if [[ $(echo "$csign" | grep "is not signed at all") != "" ]] || [[ $(echo "$csign" | grep "unrecognized, invalid, or unsuitable") != "" ]] ; then # for unsigned items
@@ -1460,7 +1464,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# gk assessment
 	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
-	echo -e "assessment:\t$assess" >> "$tmploc"
+	echo -e "GK assessment:\t$assess" >> "$tmploc"
 
 	# gatekeeper source
 	asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
@@ -1542,7 +1546,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			# regular files only, executable permissions, don't follow symlinks
 			cd "$filepath"
 			execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
-			cd /
+			### cd /
 			xfnumber=$(echo "$execfiles" | wc -l | xargs)
 			[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
 
@@ -1720,7 +1724,7 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
 	# gk assessment
 	assess=$(echo "$spctlall" | grep ": " | awk -F": " '{print $2}')
-	echo -e "\nassessment:\t$assess" >> "$tmploc"
+	echo -e "\nGK assessment:\t$assess" >> "$tmploc"
 
 	# gk source
 	asource=$(echo "$spctlall" | grep "source=" | awk -F= '{print $2}')
@@ -1786,6 +1790,8 @@ if ! $silent ; then
 fi
 
 rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
+
+cd "$workingdir"
 
 done
 
