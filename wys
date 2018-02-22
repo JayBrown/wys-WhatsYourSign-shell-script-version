@@ -709,8 +709,7 @@ export PATH=$PATH:"$wysbin"
 
 # create/read config
 if ! [[ -f "$configloc" ]] ; then
-	touch "$configloc"
-	echo -e "report=no\nvtkey=\nsilent=no" >> "$configloc"
+	echo -e "report=no\nvtkey=\nsilent=no" > "$configloc"
 fi
 configfull=$(cat "$configloc")
 
