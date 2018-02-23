@@ -94,7 +94,7 @@ Options:
 
 #### Silent mode
 * In the **wys config file** replace `silent=no` with `silent=yes` and **save**.
-* **wys** will then scan silently in the background and only log the SKIDs and (if logging is enabled) the scan results as well.
+* **wys** will scan silently in the background and only log the SKIDs and (if logging is enabled) the scan results.
 
 #### VirusTotal API key
 In the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**.
@@ -113,7 +113,7 @@ Temporary files in `/tmp` will be automatically removed by **wys** after every s
 
 ## Beta status
 * still needs general testing, lots of testing
-* timestamp information in Info.plist? (research); approximate?
+* timestamp information in Info.plist? (research) … approximate signing/creation time?
 * deep scan: parse CodeResources to thoroughly check for modified and unverified/added files (v1.1)
 
 ## Thank you
