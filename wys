@@ -1414,7 +1414,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		csverify_alt=$(echo "$csverify_raw" | grep -v "^$filepath: ")
 		if [[ "$csverify_alt" != "" ]] ; then
 			_beep
-			_notify "⚠️ Code signing issues!" "$filename"
+			_notify "⚠️ CodeResources: warning!" "$filename"
 			while read -r acsverify
 			do
 				acsverify=$(echo "$acsverify" | sed "s-: $filepath-: \.-")

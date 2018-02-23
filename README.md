@@ -64,7 +64,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 ## Scan options
 
 ### Command line operation and configuration
-* Move, copy or (best practice) clone the repository and symlink **wys** into your `$PATH`, then configure using the CLI options.
+* Move, copy or (best practice) symlink **wys** from the cloned repository into your `$PATH`, e.g. to `/usr/local/bin/wys`, then configure using the CLI options.
 * The following command line options and arguments are available:
 
 ```
