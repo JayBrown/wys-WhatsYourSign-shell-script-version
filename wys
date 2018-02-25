@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.0 beta23
+# wys v1.1 b1
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -14,7 +14,7 @@
 scrname=$(basename $0)
 singleuser=$(sysctl -n kern.singleuser)
 if [[ $singleuser == "1" ]] ; then
-	echo "Error! $scrname can not be run in single-user mode."
+	echo "Error! $scrname can not be run in single-user mode." >&2
 	exit
 fi
 
@@ -23,7 +23,7 @@ export LANG=en_US.UTF-8
 # check compatibility
 osversion=$(sw_vers -productVersion | awk -F. '{print $2}')
 if [[ "$osversion" -le 7 ]] ; then
-	_beep
+	echo "Error! Incompatible OS version: $scrname needs at least OS X 10.8." >&2
 	info=$(osascript << EOT
 beep
 tell application "System Events"
@@ -39,21 +39,24 @@ EOT
 	exit
 fi
 
+export PATH=$PATH:/usr/local/bin:/opt/local/bin:/sw/bin
+
 shopt -s extglob
 
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
-version="1.0"
-bversion=" beta 23"
+version="1.1"
+bversion=" b1"
 
 # command line options
 silentoverride=false
+discrete=false
 if [[ $1 =~ ^(--init|--initialize|--reset)$ ]] ; then
 	if [[ -f "$configloc" ]] ; then
 		echo -e "All previous settings will be lost.\nDo you really want to initialize wys? (n/Y)\n"
 		read -n 1 -s  userinput
 		if [[ $userinput == "Y" ]] ; then
-			echo -e "report=no\nvtkey=\nsilent=no" > "$configloc"
+			echo -e "report=no\nvtkey=\nsilent=no\nclamscan=no" > "$configloc"
 			echo "wys: initialized."
 		else
 			echo "wys: no change."
@@ -101,6 +104,30 @@ elif [[ $1 == "--config" ]] ; then
 			echo -e "$configfull\nsilent=no" > "$configloc"
 			echo "wys: silent mode disabled."
 		fi
+	elif [[ $1 =~ ^(clamscan|clam|clamav|clamxav)$ ]] ; then
+		clamstatus=$(echo "$configfull" | awk -F= '/^clamscan/{print $2}')
+		configfull=$(echo "$configfull" | grep -v "^clamscan=")
+		if [[ $clamstatus == "no" ]] ; then
+			clampath="/usr/local/clamXav/bin/clamscan"
+			if ! [[ -f $clampath ]] ; then
+				clamcheck=$(clamscan --version 2>/dev/null)
+				if [[ $clamcheck != "" ]] ; then
+					clampath="clamscan"
+				else
+					clampath=""
+				fi
+			fi
+			if [[ $clampath != "" ]] ; then
+				echo -e "$configfull\nclamscan=yes" > "$configloc"
+				echo "wys: clamscan enabled."
+			else
+				echo "Error: clamscan is not in your \$PATH."
+				echo "wys: clamscan disabled."
+			fi
+		else
+			echo -e "$configfull\nclamscan=no" > "$configloc"
+			echo "wys: clamscan disabled."
+		fi
 	elif [[ $1 == "" ]] ; then
 		echo "wys: no argument specified." >&2
 	else
@@ -112,23 +139,32 @@ elif [[ $1 == "--status" ]] ; then
 	if [[ $configfull == "" ]] ; then
 		echo "wys: config is empty. Please run 'wys --init' first." >&2
 	else
+		clamstatus=$(echo "$configfull" | awk -F= '/^clamscan/{print $2}')
+		[[ $clamstatus == "" ]] && clamstatus="n/a"
 		logstatus=$(echo "$configfull" | awk -F= '/^report/{print $2}')
 		[[ $logstatus == "" ]] && logstatus="n/a"
 		silentstatus=$(echo "$configfull" | awk -F= '/^silent/{print $2}')
 		[[ $silentstatus == "" ]] && silentstatus="n/a"
 		vtkey=$(echo "$configfull" | awk -F= '/^vtkey/{print $2}')
 		[[ $vtkey == "" ]] && vtkey="n/a"
+		echo -e "ClamAV scan:\t$clamstatus"
 		echo -e "logging:\t$logstatus"
 		echo -e "silent mode:\t$silentstatus"
 		echo -e "VirusTotal key:\t$vtkey"
 	fi
 	exit
 elif [[ $1 == "--help" ]] ; then
-	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan filepath(s) or file(s) from the command line\n\nOptions:\n\n--init\t\tinitialize wys\n--silent\tforce silent mode for current scans\n--status\tprint wys configuration status\n\n--config [report | silent | vt <key>]\t\tmodify wys configuration file\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
+	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan filepath(s) or file(s) from the command line\n\nOptions:\n\n--discrete\tforce-disable silent mode and all logging\n--init\t\tinitialize wys\n--silent\tforce silent mode for current scans\n--status\tprint wys configuration status\n\n--config [clamscan | report | silent | vt <key>]\t\tmodify wys configuration file\n\tclamscan\ttoggle ClamAV scan\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
 	exit
 elif [[ $1 == "--silent" ]] || [[ $1 == "--quiet" ]] ; then
-	echo "wys: silent mode override enabled for current scans."
+	echo "wys: silent mode forced for current scans."
 	silentoverride=true
+	shift
+elif [[ $1 == "--discrete" ]] ; then
+	discrete=true
+	echo "wys: discrete mode enabled."
+	echo "wys: silent mode disabled for current scans."
+	echo "wys: all logging disabled for current scans."
 	shift
 fi
 
@@ -715,19 +751,28 @@ export PATH=$PATH:"$wysbin"
 
 # create/read config
 if ! [[ -f "$configloc" ]] ; then
-	echo -e "report=no\nvtkey=\nsilent=no" > "$configloc"
+	echo -e "report=no\nvtkey=\nsilent=no\nclamscan=no" > "$configloc"
 fi
 configfull=$(cat "$configloc")
 
-# read VirusTotal API key
-vtaccess=false
-vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
-if [[ $vtkey != "" ]] ; then
-	vtaccess=true
-	echo "wys: VirusTotal API Key detected."
-else
-	echo "wys: VirusTotal API Key not found."
+# read clamscan status
+clamav=false
+clamstatus=$(echo "$configfull" | awk -F= '/clamscan/{print $2}')
+if [[ $clamstatus == "yes" ]] ; then
+	clampath="/usr/local/clamXav/bin/clamscan"
+	if ! [[ -f $clampath ]] ; then
+		clamcheck=$(clamscan --version 2>/dev/null)
+		if [[ $clamcheck != "" ]] ; then
+			clampath="clamscan"
+			clamav=true
+		else
+			clampath=""
+		fi
+	else
+		clamav=true
+	fi
 fi
+$clamav && echo "wys: configured for ClamAV scans."
 
 # read report setting
 wyslog=false
@@ -751,6 +796,22 @@ if ! $silentoverride ; then
 	fi
 else
 	silent=true
+fi
+
+# read VirusTotal API key
+vtaccess=false
+vtkey=$(echo "$configfull" | awk -F= '/vtkey/{print $2}')
+if [[ $vtkey != "" ]] ; then
+	vtaccess=true
+	echo "wys: VirusTotal API Key detected."
+else
+	echo "wys: VirusTotal API Key not found."
+fi
+
+# discrete check
+if $discrete ; then
+	silent=false
+	wyslog=false
 fi
 
 # temporary subdirectory for certificate dumps
@@ -840,7 +901,6 @@ _sizes () {
 		mibsize="< 0.01"
 	fi
 	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
-	echo -e "size on disk:\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 }
 
 # parse pbpasted clipboard content for possible checksums (only md5, sha1, sha2)
@@ -915,6 +975,26 @@ _cscomp () {
 	echo "" | pbcopy
 }
 
+# ClamAV scan function
+_clamav () {
+	clamlist=$("$clampath" -ri --no-summary "$filepath")
+	if [[ $clamlist != "" ]] ; then
+		clamlist=$(echo "$clamlist" | awk -F": " '{print substr($0, index($0,$2))}' | sed 's/ FOUND$//g')
+		clamhits=$(echo "$clamlist" | wc -l | xargs)
+		if [ $clamhits -eq 1 ] ; then
+			clamfind="$clamlist"
+		else
+			clamfind=$(echo "$clamlist" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
+		fi
+		infected=true
+		_beep
+		_notify "☠️ ClamAV: malware detected!" "$filename"
+		echo -e "ClamAV:\t\tMALWARE DETECTED: $clamfind" >> "$tmploc"
+	else
+		echo -e "ClamAV:\t\tno hits" >> "$tmploc"
+	fi
+}
+
 # access Virus Total function
 _virustotal () {
 	vtresults=$(curl --connect-timeout 10 -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
@@ -923,27 +1003,27 @@ _virustotal () {
 	if [[ $vthits == "" ]] || [[ $vthits == "0" ]] ; then
 		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
 	else
-		_beep
 		vtdetects=$(echo "$vtresults" | grep ": {\"detected\": true," | awk -F\" '{print $12}' | sort)
 		vtmajority=$(echo "$vtdetects" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
+		_beep
 		if [ $vthits -gt 5 ] ; then
-			_notify "☠️ Malware detected!" "$filename"
+			_notify "☠️ VirusTotal: malware detected!" "$filename"
 			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority ($vthits hits)\n" >> "$tmploc"
 		else
 			if [[ $vthits == "1" ]] ; then
-				_notify "⚠️ Malware issue!" "$filename"
+				_notify "⚠️ VirusTotal: malware issue!" "$filename"
 				echo -e "VirusTotal:\tMALWARE ISSUE: $vtmajority ($vthits hit)\n" >> "$tmploc"
 			elif [[ $vthits == "2" ]] ; then
-				_notify "⚠️ Malware issues!" "$filename"
+				_notify "⚠️ VirusTotal: malware issues!" "$filename"
 				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			elif [[ $vthits == "3" ]] ; then
-				_notify "⚠️ Tentative malware!" "$filename"
+				_notify "⚠️ VirusTotal: tentative malware!" "$filename"
 				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			elif [[ $vthits == "4" ]] ; then
-				_notify "⚠️ Possible malware!" "$filename"
+				_notify "⚠️ VirusTotal: possible malware!" "$filename"
 				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			elif [[ $vthits == "5" ]] ; then
-				_notify "⚠️ Probable malware!" "$filename"
+				_notify "⚠️ VirusTotal: probable malware!" "$filename"
 				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
 			fi
 		fi
@@ -989,9 +1069,9 @@ if [[ -d "$filepath" ]] ; then
 		fi
 	elif [[ $extension =~ ^(sparsebundle|SPARSEBUNDLE)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns"
-	elif [[ $extension =~ ^(framework|kext|FRAMEWORK|KEXT)$ ]] ; then
+	elif [[ $extension =~ ^(framework|kext|bundle|FRAMEWORK|KEXT|BUNDLE)$ ]] ; then # apparently there's no default icon for .bundle
 		icon_loc="/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/KEXT.icns"
-	fi ### STILL MISSING: icon for generic .bundle
+	fi
 elif [[ -f "$filepath" ]] ; then
 	if [[ $extension =~ ^(dmg|sparseimage|DMG|SPARSEIMAGE)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/DiskImageMounter.app/Contents/Resources/diskcopy-doc.icns"
@@ -999,9 +1079,9 @@ elif [[ -f "$filepath" ]] ; then
 		icon_loc="/System/Library/CoreServices/Installer.app/Contents/Resources/package.icns"
 	elif [[ $extension =~ ^(mpkg|MPKG)$ ]] ; then
 		icon_loc="/System/Library/CoreServices/Installer.app/Contents/Resources/metapackage.icns"
-	elif [[ $extension =~ ^(xip|XIP)$ ]] ; then
+	elif [[ $extension =~ ^(xip|xar|XIP|XAR)$ ]] ; then # apparently there's no default icon for .xar
 		icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-xip.icns"
-	else # Note: apparently there's no default icon for xar archives
+	else
 		if [[ -f "/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extension.icns" ]] ; then
 			extvar=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
 			icon_loc="/System/Library/CoreServices/Applications/Archive Utility.app/Contents/Resources/bah-$extvar.icns"
@@ -1022,6 +1102,7 @@ if ! [[ -r "$filepath" ]] ; then
 	_notify "❌ File not readable!" "$filename"
 	continue
 fi
+_notify "Scanning..." "$filename"
 
 # initial stuff
 pkgu=false
@@ -1040,14 +1121,10 @@ ptmploc="/tmp/$filename.plist"
 stmploc="/tmp/$filename-os.log" ### DELETE FOR DEEP SCAN
 utmploc="/tmp/$filename-us.log"
 rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
-touch "$tmploc"
-touch "$ptmploc"
-touch "$stmploc" ### DELETE FOR DEEP SCAN
-touch "$utmploc"
 
 [[ $extension =~ ^(pkg|mpkg|xip|xar|PKG|MPKG|XIP|XAR)$ ]] && pkgu=true
 
-echo "$filename" >> "$tmploc"
+echo "$filename" > "$tmploc"
 
 echo -e "$shortpath\n" >> "$tmploc"
 
@@ -1069,11 +1146,13 @@ if [[ $filetype != "directory" ]] ; then
 	bsize=$(stat -f%z "$filepath")
 	[ $bsize -gt 100000000 ] && _notify "Large file: please wait..." "$filename"
 	_sizes
+	echo -e "data size:\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 else # disk usage (directory files only)
 	dirsize=$(du -schk "$filepath" | awk '/total$/{print $1}')
 	[ $dirsize -gt 100000 ] && _notify "Large file: please wait..." "$filename"
 	bsize=$(echo "$dirsize * 1024" | bc)
 	_sizes
+	echo -e "size on disk:\t$hrbsize B [$mbsize MB | $mibsize MiB]\n" >> "$tmploc"
 fi
 
 echo -e "file type:\t$filetype" >> "$tmploc"
@@ -1084,7 +1163,7 @@ itemtype=$(echo "$mdlsall" | awk -F"= " '/kMDItemKind/{print $2}' | sed 's/^"\(.
 if [[ $itemtype == "" ]] ; then
 	if [[ $filetype != "directory" ]] ; then
 		echo -e "item type:\tn/a\n" >> "$tmploc"
-	else # mdls might fail on mounted read-only volumes, i.e read from bundle plist
+	else # mdls (mostly?) fails on mounted read-only volumes & new files, i.e read from bundle plist
 		while read -r iplistloc
 		do
 			pclass=$(defaults read "$filepath/$iplistloc" NSPrincipalClass 2>/dev/null)
@@ -1361,6 +1440,14 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	fi
 
+	# quarantine check
+	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed 's/;/ /g')
+	[[ $qxattr != "" ]] && echo -e "quarantine:\t$qxattr\n" >> "$tmploc" || echo -e "quarantine:\tno xattr\n" >> "$tmploc"
+
+	# clamscan
+	infected=false
+	$clamav && _clamav
+
 	# check hash at VirusTotal
 	if $vtaccess && [[ $vthash != "" ]] ; then
 		_virustotal "$vthash"
@@ -1433,7 +1520,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	if ! $unsigned ; then # read previously scanned SKID from sqlite database
 		oldskid=$(sqlite3 "$dbloc" "select skid from WhatsYourSign where cfbid=\"$cfbid\";")
 		if [[ $oldskid == "" ]] ; then # none found, i.e. initial scan and write to database
-			sqlite3 "$dbloc" "insert into WhatsYourSign (cfbid,csid,skid) values (\"$cfbid\",\"$csid\",\"$skid\");"
+			! $discrete && sqlite3 "$dbloc" "insert into WhatsYourSign (cfbid,csid,skid) values (\"$cfbid\",\"$csid\",\"$skid\");"
 			echo -e "SKIDs:\t\tinitial scan: $skid\n" >> "$tmploc"
 		else # compare SKIDs
 			if [[ $skid == $oldskid ]] ; then
@@ -1449,9 +1536,9 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				_beep
 				_notify "⚠️ SKID mismatch!" "$filename"
 				if $idmatch ; then
-					sqlite3 "$dbloc" "update WhatsYourSign set skid=\"$skid\" where cfbid=\"$cfbid\";"
+					! $discrete && sqlite3 "$dbloc" "update WhatsYourSign set skid=\"$skid\" where cfbid=\"$cfbid\";"
 				else
-					sqlite3 "$dbloc" "update WhatsYourSign set (csid,skid) values (\"$csid\",\"$skid\") where cfbid=\"$cfbid\";"
+					! $discrete && sqlite3 "$dbloc" "update WhatsYourSign set (csid,skid) values (\"$csid\",\"$skid\") where cfbid=\"$cfbid\";"
 				fi
 			fi
 		fi
@@ -1514,7 +1601,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 		# parse entitlements
 		csignc=$(echo "$csign" | LANG=C LC_CTYPE=C sed 's/^.*\<\?xml/\<\?xml/g' | grep "<.*>")
-		echo "$csignc" >> "$ptmploc"
+		echo "$csignc" > "$ptmploc"
 		enthr=$(plutil -p "$ptmploc" | grep -v "^{" | grep -v "^}" | sed -e 's/^[ \t]*//' | grep -v "^$")
 		if [[ $enthr != "" ]] ; then
 			count=1
@@ -1583,7 +1670,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				if [ $snumber -gt 20 ] ; then
 					smany=true
 					echo -e "\nexecutable files with other code signatures:\n[see auxiliary list]" >> "$tmploc"
-					echo -e "$filename\n$filepath\n\n$xfothersign" >> "$stmploc"
+					echo -e "$filename\n$filepath\n\n$xfothersign" > "$stmploc"
 				else
 					echo -e "\n$xfothersign" >> "$tmploc"
 				fi
@@ -1597,7 +1684,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				if [ $unumber -gt 10 ] ; then
 					umany=true
 					echo -e "\nunsigned files with executable permissions:\n[see auxiliary list]" >> "$tmploc"
-					echo -e "$filename\n$filepath\n\n$xfunsigned" >> "$utmploc"
+					echo -e "$filename\n$filepath\n\n$xfunsigned" > "$utmploc"
 				else
 					echo -e "\n$xfunsigned" >> "$tmploc"
 				fi
@@ -1644,8 +1731,18 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		unsigned=false
 	fi
 
+	# quarantine check
+	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed 's/;/ /g')
+	[[ $qxattr != "" ]] && echo -e "quarantine:\t$qxattr\n" >> "$tmploc" || echo -e "quarantine:\tno xattr\n" >> "$tmploc"
+
+	# clamscan
+	infected=false
+	$clamav && _clamav
+
 	# check hash at VirusTotal
-	$vtaccess && _virustotal "$vthash"
+	if $vtaccess && [[ $vthash != "" ]] ; then
+		_virustotal "$vthash"
+	fi
 
 	# dump the package table of contents (header)
 	pkgheader=$(xar --dump-toc=- -f "$filepath")
@@ -1762,8 +1859,8 @@ fi
 # use qlmanage (QuickLook CLI) to display results
 if $wyslog ; then
 	tmploc_body=$(cat "$tmploc")
-	stmploc_body=$(cat "$stmploc")
-	utmploc_body=$(cat "$utmploc")
+	stmploc_body=$(cat "$stmploc" 2>/dev/null)
+	utmploc_body=$(cat "$utmploc" 2>/dev/null)
 	logbody="scan start: $scandate
 $tmploc_body
 $stmploc_body

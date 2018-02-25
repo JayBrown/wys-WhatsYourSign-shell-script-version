@@ -16,6 +16,8 @@ Full functionality including signature verification is available for bundles (e.
 * verifies DMG checksums and prints disk image information on DMGs, sparsebundles and sparseimages,
 * verifies a signed bundle for modified files with `codesign`,
 * compares a file hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
+* checks if a file is quarantined,
+* scans for malware using `clamscan` installed as part of **ClamXAV** or **ClamAV** (optional),
 * checks the calculated hash (file or executable) against the VirusTotal database for malware detection (optional),
 * verifies code signing certificates (CSCs) against the current revocation list using `security` and accounts for potentially spoofed code signatures,
 * verifies installer package signing certificates (IPSCs) against the current revocation list using `security` and accounts for potentially spoofed signatures,
@@ -46,6 +48,10 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 ### Usage in default macOS Finder
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
 
+### ClamAV
+* Install **[ClamXAV](https://www.clamxav.com)** or the original freeware version **[ClamAV](https://www.clamav.net)**.
+* Note: **ClamAV** can also be installed using **[Homebrew](https://brew.sh)**.
+
 ### VirusTotal API key
 * Create a free online account at **[VirusTotal](https://www.virustotal.com)**;
 * in your browser navigate: VirusTotal > Account > Profile > API Key;
@@ -72,11 +78,13 @@ wys [<file(path) 1> ... <file(path) n>]		scan filepath(s) or file(s) from the co
 
 Options:
 
+--discrete	force-disable silent mode and all logging
 --init		initialize wys
 --silent	force silent mode for current scans
 --status	print wys configuration status
 
---config [report | silent | vt <key>]		modify wys configuration file
+--config [clamscan | report | silent | vt <key>]		modify wys configuration file
+	clamscan	toggle ClamAV scan
 	report		toggle logging
 	silent		toggle silent mode
 	vt <key>	enter VirusTotal API key
@@ -95,6 +103,9 @@ Options:
 #### Silent mode
 * In the **wys config file** replace `silent=no` with `silent=yes` and **save**.
 * **wys** will scan silently in the background and only log the SKIDs and (if logging is enabled) the scan results.
+
+#### ClamAV scan
+In the **wys config file** replace `clamscan=no` with `clamscan=yes` and **save**.
 
 #### VirusTotal API key
 In the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**.
