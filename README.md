@@ -6,7 +6,7 @@
 
 **wys is a shell script variant of Patrick Wardle's awesome [WhatsYourSign](https://github.com/objective-see/WhatsYourSign).**
 
-Full functionality including signature verification is available for bundles (e.g. app, kext, framework), binaries/executables, disk images (DMG, sparsebundle, sparseimage), package archives (pkg, xip, xar). Basic functionality, e.g. checksum verification, is available for any and all regular files.
+Full functionality including signature verification is available for bundles (e.g. app, kext, framework), binaries/executables, disk images (DMG, sparsebundle, sparseimage), package archives (pkg, mpkg, xip, xar). Basic functionality, e.g. checksum verification, is available for any and all regular files.
 
 **wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also
 
