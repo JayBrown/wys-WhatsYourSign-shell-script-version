@@ -8,7 +8,11 @@
 
 Full functionality including signature verification is available for bundles (e.g. app, kext, framework), binaries/executables, disk images (DMG, sparsebundle, sparseimage), package archives (pkg, mpkg, xip, xar). Basic functionality, e.g. checksum verification, is available for any and all regular files.
 
-**wys** is actually "WhatsYourSign Extended". In addition to the default functionality, **wys** also
+The original **WhatsYourSign** is described as follows:
+
+> Verifying a file's cryptographic signature can deduce its origin or trustability. Unfortunately on OS X there is no simple way to view a file's signature from the UI. ** WhatsYourSign** adds a menu item to Finder.app. Simply right-, or control-click on any file to display its cryptographic signing information!
+
+**wys**, on the other hand, is actually **WhatsYourSign** ***Extended***. In addition to the default functionality, **wys** also
 
 * generally works on mounted volumes, i.e. in `/Volumes` or other user-defined mount points (e.g. `smb` mounts etc.), i.e. you can safely scan a file or application on its mounted DMG volume before copying it,
 * prints the file size (B, MB, MiB) for regular files (data size) and directories (size on disk),
