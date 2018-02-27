@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 b1
+# wys v1.1 b2
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -46,7 +46,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" b1"
+bversion=" beta 2"
 
 # command line options
 silentoverride=false
@@ -977,58 +977,127 @@ _cscomp () {
 
 # ClamAV scan function
 _clamav () {
-	clamlist=$("$clampath" -ri --no-summary "$filepath")
+	clamlist=$("$clampath" -riz --block-encrypted=yes --block-macros=yes --detect-broken=yes --detect-pua=yes --no-summary "$filepath")
 	if [[ $clamlist != "" ]] ; then
 		clamlist=$(echo "$clamlist" | awk -F": " '{print substr($0, index($0,$2))}' | sed 's/ FOUND$//g')
 		clamhits=$(echo "$clamlist" | wc -l | xargs)
+		clamsingle=false
 		if [ $clamhits -eq 1 ] ; then
 			clamfind="$clamlist"
+			clamsingle=true
 		else
-			clamfind=$(echo "$clamlist" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
+			clamfind=$(echo "$clamlist" | uniq -c | sort | awk '{print substr($0, index($0,$2))}')
+			clamchlist="$clamfind"
 		fi
-		infected=true
-		_beep
-		_notify "☠️ ClamAV: malware detected!" "$filename"
-		echo -e "ClamAV:\t\tMALWARE DETECTED: $clamfind" >> "$tmploc"
+		clamother=false
+		if [[ $(echo "$clamfind" | grep "^Heuristics.OLE2.ContainsMacros") != "" ]] ; then
+			_beep
+			_notify "⚠️ ClamAV: potential macro issue!" "$filename"
+			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^Heuristics.OLE2.ContainsMacros")
+			clamother=true
+			clamstring="POTENTIAL MACRO ISSUE"
+		fi
+		if [[ $(echo "clamfind" | grep "^Broken.Executable") != "" ]] ; then
+			_beep
+			_notify "⚠️ ClamAV: broken executable!" "$filename"
+			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^Broken.Executable")
+			clamother=true
+			clamstring="ISSUE"
+		fi
+		if [[ $(echo "$clamfind" | grep "^Encrypted\.") != "" ]] ; then
+			_beep
+			_notify "⚠️ ClamAV: encrypted file!" "$filename"
+			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^Encrypted\.")
+			clamother=true
+			clamstring="ISSUE"
+		fi
+		if [[ $(echo "$clamfind" | grep "^PUA\.") != "" ]] ; then
+			_beep
+			_notify "⚠️ ClamAV: PUA detected!" "$filename"
+			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^PUA\.")
+			clamother=true
+			clamstring="PUA DETECTED"
+		fi
+		if $clamsingle ; then # only one ClamAV result
+			if ! $clamother ; then # malware detected
+				_beep
+				_notify "☠️ ClamAV: malware detected!" "$filename"
+				echo -e "ClamAV:\t\tMALWARE DETECTED: $clamfind" >> "$tmploc"
+			else # no malware detected, but potential PUA, macro etc.
+				echo -e "ClamAV:\t\t$clamstring: $clamfind" >> "$tmploc"
+			fi
+		else # more than one ClamAV result
+			if ! $clamother ; then # only malware results
+				_beep
+				_notify "☠️ ClamAV: malware detected!" "$filename"
+				echo -e "ClamAV:\t\tMULTIPLE MALWARE RESULTS" >> "$tmploc"
+				count=1
+				while read -r clamresult
+				do
+					echo -e "\t\t#$count: $clamresult" >> "$tmploc"
+					(( count++ ))
+				done < <(echo "$clamfind")
+			else # other results like PUA etc. and possibly malware
+				# check first if malware remains
+				clamremhits=$(echo "$clamchlist" | grep -v "^$" | wc -l | xargs)
+				echo "hits: $clamremhits"
+				if [[ $clamremhits == "" ]] || [[ $clamremhits == "0" ]] ; then # only other results
+					echo -e "ClamAV:\t\tMULTIPLE MALWARE ISSUES:" >> "$tmploc"
+				else # malware also detected
+					_beep
+					echo -e "ClamAV:\t\tMULTIPLE MALWARE RESULTS & ISSUES:" >> "$tmploc"
+					_notify "☠️ ClamAV: malware detected!" "$filename"
+				fi
+				count=1
+				while read -r clamresult
+				do
+					echo -e "\t\t#$count: $clamresult" >> "$tmploc"
+					(( count++ ))
+				done < <(echo "$clamfind")
+			fi
+		fi
+		echo "" >> "$tmploc"
 	else
-		echo -e "ClamAV:\t\tno hits" >> "$tmploc"
+		echo -e "ClamAV:\t\tno results\n" >> "$tmploc"
 	fi
 }
 
 # access Virus Total function
 _virustotal () {
+	vtopen=false
 	vtresults=$(curl --connect-timeout 10 -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
 		| awk -F"}" -v OFS="}\n" ' $1=$1 {print}' | sed -e 's/^{\"scans\": {//g' -e 's/^, //g' | grep -v "^}$")
 	vthits=$(echo "$vtresults" | awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//" | xargs)
 	if [[ $vthits == "" ]] || [[ $vthits == "0" ]] ; then
-		echo -e "VirusTotal:\tno hits\n" >> "$tmploc"
+		echo -e "VirusTotal:\tno hits" >> "$tmploc"
 	else
 		vtdetects=$(echo "$vtresults" | grep ": {\"detected\": true," | awk -F\" '{print $12}' | sort)
 		vtmajority=$(echo "$vtdetects" | uniq -c | sort | sed -e '$!d' | awk '{print substr($0, index($0,$2))}')
 		_beep
 		if [ $vthits -gt 5 ] ; then
 			_notify "☠️ VirusTotal: malware detected!" "$filename"
-			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority ($vthits hits)\n" >> "$tmploc"
+			echo -e "VirusTotal:\tMALWARE DETECTED: $vtmajority ($vthits hits)" >> "$tmploc"
 		else
 			if [[ $vthits == "1" ]] ; then
 				_notify "⚠️ VirusTotal: malware issue!" "$filename"
-				echo -e "VirusTotal:\tMALWARE ISSUE: $vtmajority ($vthits hit)\n" >> "$tmploc"
+				echo -e "VirusTotal:\tMALWARE ISSUE: $vtmajority ($vthits hit)" >> "$tmploc"
 			elif [[ $vthits == "2" ]] ; then
 				_notify "⚠️ VirusTotal: malware issues!" "$filename"
-				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority ($vthits hits)\n" >> "$tmploc"
+				echo -e "VirusTotal:\tMALWARE ISSUES: $vtmajority ($vthits hits)" >> "$tmploc"
 			elif [[ $vthits == "3" ]] ; then
 				_notify "⚠️ VirusTotal: tentative malware!" "$filename"
-				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
+				echo -e "VirusTotal:\tTENTATIVE MALWARE: $vtmajority ($vthits hits)" >> "$tmploc"
 			elif [[ $vthits == "4" ]] ; then
 				_notify "⚠️ VirusTotal: possible malware!" "$filename"
-				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
+				echo -e "VirusTotal:\tPOSSIBLE MALWARE: $vtmajority ($vthits hits)" >> "$tmploc"
 			elif [[ $vthits == "5" ]] ; then
 				_notify "⚠️ VirusTotal: probable malware!" "$filename"
-				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority ($vthits hits)\n" >> "$tmploc"
+				echo -e "VirusTotal:\tPROBABLE MALWARE: $vtmajority ($vthits hits)" >> "$tmploc"
 			fi
 		fi
-		open "https://www.virustotal.com/#/file/$vthash"
+		vtopen=true
 	fi
+	! $clamav && echo "" >> "$tmploc"
 }
 
 # set standard .app Info.plist subpaths
@@ -1401,8 +1470,9 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	fi
 
-	# print download sources
+	# print download sources & quarantine check
 	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed -e 's/;/ /g' -e 's/|/ /g')
 	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
 		count=1
 		while read -r dldomain
@@ -1413,8 +1483,14 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				echo -e "\t\t$dldomain" >> "$tmploc"
 			fi
 			(( count++ ))
-		done < <(echo "$dlflist")
-		echo "" >> "$tmploc"
+		done < <(echo "$dlflist" | tail -r)
+		if [[ $qxattr != "" ]] ; then
+			echo -e "quarantine:\t$qxattr\n" >> "$tmploc"
+		else
+			echo "" >> "$tmploc"
+		fi
+	else
+		[[ $qxattr != "" ]] && echo -e "quarantine:\t$qxattr\n" >> "$tmploc"
 	fi
 
 	# hashes/checksums
@@ -1428,7 +1504,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			else
 				execsym=""
 			fi
-			execsub=$(echo "$executable" | sed "s-^$filepath-\.-")
+			execsub=$(echo "$executable" | sed "s:^$filepath:\.:")
 			echo -e "executable:\t$execsub" >> "$tmploc"
 			_hashes "$executable"
 		else # single file: can check against hash stored in clipboard
@@ -1440,18 +1516,14 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	fi
 
-	# quarantine check
-	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed 's/;/ /g')
-	[[ $qxattr != "" ]] && echo -e "quarantine:\t$qxattr\n" >> "$tmploc" || echo -e "quarantine:\tno xattr\n" >> "$tmploc"
-
-	# clamscan
-	infected=false
-	$clamav && _clamav
-
 	# check hash at VirusTotal
 	if $vtaccess && [[ $vthash != "" ]] ; then
 		_virustotal "$vthash"
+		$vtopen && open "https://www.virustotal.com/#/file/$vthash"
 	fi
+
+	# clamscan
+	$clamav && _clamav
 
 	# bundle & signature identifiers
 	if ! $unsigned ; then
@@ -1486,7 +1558,8 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# codesign verification
 	if ! $unsigned ; then
-		csverify_raw=$(codesign --verify --verbose "$filepath" 2>&1)
+		csverify_raw=$(codesign --verify --verbose=4 "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
+		csverify_raw=$(echo "$csverify_raw" | grep -v "^--validated:")
 		csverify_all=$(echo "$csverify_raw" | grep "^$filepath: " | awk -F": " '{print $2}')
 		count=1
 		while read -r csverify
@@ -1510,6 +1583,9 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 		echo "" >> "$tmploc"
 	else
+		# check if CodeResources exist ### IF CS FILE EXISTS, RESET TO: unsigned=false ?
+		### echo UNSIGNED: MODIFIED + notify CS warning
+		### set csremoved=true >>> later: manual verification using Code Resources
 		echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
 	fi
 
@@ -1626,7 +1702,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	if [[ $filetype == "directory" ]] ; then
 		if [[ $executable != "" ]] ; then
 
-			shortexec=$(echo "$executable" | sed "s-^$filepath--")
+			shortexec=$(echo "$executable" | sed "s:^$filepath::")
 			xfunsigned="unsigned files with executable permissions:"
 			xfothersign="executable files with other code signatures:"
 
@@ -1696,8 +1772,9 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
-	# print download sources
+	# print download sources & quarantine check
 	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed -e 's/;/ /g' -e 's/|/ /g')
 	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
 		count=1
 		while read -r dldomain
@@ -1708,8 +1785,14 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 				echo -e "\t\t$dldomain" >> "$tmploc"
 			fi
 			(( count++ ))
-		done < <(echo "$dlflist")
-		echo "" >> "$tmploc"
+		done < <(echo "$dlflist" | tail -r)
+		if [[ $qxattr != "" ]] ; then
+			echo -e "quarantine:\t$qxattr\n" >> "$tmploc"
+		else
+			echo "" >> "$tmploc"
+		fi
+	else
+		[[ $qxattr != "" ]] && echo -e "quarantine:\t$qxattr\n" >> "$tmploc"
 	fi
 
 	# calculate hashes/checksums
@@ -1731,18 +1814,14 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 		unsigned=false
 	fi
 
-	# quarantine check
-	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed 's/;/ /g')
-	[[ $qxattr != "" ]] && echo -e "quarantine:\t$qxattr\n" >> "$tmploc" || echo -e "quarantine:\tno xattr\n" >> "$tmploc"
-
-	# clamscan
-	infected=false
-	$clamav && _clamav
-
 	# check hash at VirusTotal
 	if $vtaccess && [[ $vthash != "" ]] ; then
 		_virustotal "$vthash"
+		$vtopen && open "https://www.virustotal.com/#/file/$vthash"
 	fi
+
+	# clamscan
+	$clamav && _clamav
 
 	# dump the package table of contents (header)
 	pkgheader=$(xar --dump-toc=- -f "$filepath")
