@@ -66,6 +66,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
 * VirusTotal results can also produce false warnings, depending on the antivirus software involved; examples are:
   * **BBEdit:** VEX189B.Webshell (Bkav);
   * false positives like applications with `libswiftDispatch.dylib` marked as MacOS.BitCoinMiner-AS (Avast, AVG).
+* ClamAV scans are run with the `-r` and `-z` options, so they can take longer on older Macs.
 
 ## Scan options
 

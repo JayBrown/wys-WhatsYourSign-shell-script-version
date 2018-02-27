@@ -1030,7 +1030,7 @@ _clamav () {
 			if ! $clamother ; then # only malware results
 				_beep
 				_notify "☠️ ClamAV: malware detected!" "$filename"
-				echo -e "ClamAV:\t\tMULTIPLE MALWARE RESULTS" >> "$tmploc"
+				echo -e "ClamAV:\t\tMULTIPLE MALWARE RESULTS:" >> "$tmploc"
 				count=1
 				while read -r clamresult
 				do
