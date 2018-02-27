@@ -10,7 +10,7 @@ Full functionality including signature verification is available for bundles (e.
 
 The original **WhatsYourSign** is described as follows:
 
-> Verifying a file's cryptographic signature can deduce its origin or trustability. Unfortunately on OS X there is no simple way to view a file's signature from the UI. ** WhatsYourSign** adds a menu item to Finder.app. Simply right-, or control-click on any file to display its cryptographic signing information!
+> Verifying a file's cryptographic signature can deduce its origin or trustability. Unfortunately on OS X there is no simple way to view a file's signature from the UI. **WhatsYourSign** adds a menu item to Finder.app. Simply right-, or control-click on any file to display its cryptographic signing information!
 
 **wys**, on the other hand, is actually **WhatsYourSign** ***Extended***. In addition to the default functionality, **wys** also
 
