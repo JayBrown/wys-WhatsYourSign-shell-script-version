@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 b2
+# wys v1.1 beta 3
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -46,7 +46,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 2"
+bversion=" beta 3"
 
 # command line options
 silentoverride=false
@@ -1040,7 +1040,6 @@ _clamav () {
 			else # other results like PUA etc. and possibly malware
 				# check first if malware remains
 				clamremhits=$(echo "$clamchlist" | grep -v "^$" | wc -l | xargs)
-				echo "hits: $clamremhits"
 				if [[ $clamremhits == "" ]] || [[ $clamremhits == "0" ]] ; then # only other results
 					echo -e "ClamAV:\t\tMULTIPLE MALWARE ISSUES:" >> "$tmploc"
 				else # malware also detected
@@ -1062,10 +1061,26 @@ _clamav () {
 	fi
 }
 
+# fping VirusTotal
+_vtfping () {
+pings=3
+until (( pings == 0 )) ; do
+	fping -c1 -t300 "virustotal.com" 2>/dev/null 1>/dev/null
+	if (( $? == 0 )); then
+		vtaccess=true
+		break
+	fi
+	if (( --pings == 0 )); then
+		vtaccess=false
+	fi
+	sleep 8
+done
+}
+
 # access Virus Total function
 _virustotal () {
 	vtopen=false
-	vtresults=$(curl --connect-timeout 10 -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" \
+	vtresults=$(curl --connect-timeout 10 -s -X POST 'https://www.virustotal.com/vtapi/v2/file/report' --form apikey="$vtkey" --form resource="$1" 2>/dev/null \
 		| awk -F"}" -v OFS="}\n" ' $1=$1 {print}' | sed -e 's/^{\"scans\": {//g' -e 's/^, //g' | grep -v "^}$")
 	vthits=$(echo "$vtresults" | awk -F'positives\":' '{print $2}' | awk -F, '{print $1}' | sed "s/^[ \t]*//" | xargs)
 	if [[ $vthits == "" ]] || [[ $vthits == "0" ]] ; then
@@ -1517,9 +1532,19 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# check hash at VirusTotal
-	if $vtaccess && [[ $vthash != "" ]] ; then
-		_virustotal "$vthash"
-		$vtopen && open "https://www.virustotal.com/#/file/$vthash"
+	if $vtaccess ; then
+		_vtfping
+		if ! $vtaccess ; then
+			echo "wys: could not reach VirusTotal." >&2
+			_notify "Error: VirusTotal offline" "Not connected to the internet?"
+			echo -e "VirusTotal:\tn/a (offline)" >> "$tmploc"
+			! $clamav && echo "" >> "$tmploc"
+		else
+			if [[ $vthash != "" ]] ; then
+				_virustotal "$vthash"
+				$vtopen && open "https://www.virustotal.com/#/file/$vthash"
+			fi
+		fi
 	fi
 
 	# clamscan
@@ -1558,7 +1583,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# codesign verification
 	if ! $unsigned ; then
-		csverify_raw=$(codesign --verify --verbose=4 "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
+		csverify_raw=$(codesign --verify --verbose=4 --deep "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
 		csverify_raw=$(echo "$csverify_raw" | grep -v "^--validated:")
 		csverify_all=$(echo "$csverify_raw" | grep "^$filepath: " | awk -F": " '{print $2}')
 		count=1
@@ -1815,9 +1840,19 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	fi
 
 	# check hash at VirusTotal
-	if $vtaccess && [[ $vthash != "" ]] ; then
-		_virustotal "$vthash"
-		$vtopen && open "https://www.virustotal.com/#/file/$vthash"
+	if $vtaccess ; then
+		_vtfping
+		if ! $vtaccess ; then
+			echo "wys: could not reach VirusTotal." >&2
+			_notify "Error: VirusTotal offline" "Not connected to the internet?"
+			echo -e "VirusTotal:\tn/a (offline)" >> "$tmploc"
+			! $clamav && echo "" >> "$tmploc"
+		else
+			if [[ $vthash != "" ]] ; then
+				_virustotal "$vthash"
+				$vtopen && open "https://www.virustotal.com/#/file/$vthash"
+			fi
+		fi
 	fi
 
 	# clamscan
