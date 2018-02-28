@@ -67,10 +67,14 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
   * renewed an expired certificate,
   * sold his product to another developer, or
   * received a new certificate (e.g. after company rebranding etc.).
-* VirusTotal results can also produce false warnings, depending on the antivirus software involved; examples are:
+* ClamAV scans are run with the `-r` and `-z` options, so they can take longer on older Macs.
+* VirusTotal results can produce false warnings, depending on the antivirus software involved; examples are:
   * **BBEdit:** VEX189B.Webshell (Bkav);
   * false positives like applications with `libswiftDispatch.dylib` marked as MacOS.BitCoinMiner-AS (Avast, AVG).
-* ClamAV scans are run with the `-r` and `-z` options, so they can take longer on older Macs.
+* ***Please keep in mind*** that ClamAV and VirusTotal scans *do not help with unknown threats*, and even if a malware is known, these scans might not produce any results, for example:
+  * if a malware is redistributed with a different code signature,
+  * if the malware code itself has been changed, or
+  * if only the zip or DMG used for distribution has been registered as malware, not the app itself.
 
 ## Scan options
 
