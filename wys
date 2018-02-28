@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 4
+# wys v1.1 beta 5
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -46,7 +46,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 4"
+bversion=" beta 5"
 
 # command line options
 silentoverride=false
@@ -776,26 +776,30 @@ $clamav && echo "wys: configured for ClamAV scans."
 
 # read report setting
 wyslog=false
-wysreport=$(echo "$configfull" | awk -F= '/report/{print $2}')
-if [[ $wysreport == "yes" ]] ; then
-	wyslog=true
-	logdir="$HOME/Library/Logs/wys"
-	! [[ -d "$logdir" ]] && mkdir -p "$logdir"
-	echo "wys: configured to log scan reports."
+if ! $discrete ; then
+	wysreport=$(echo "$configfull" | awk -F= '/report/{print $2}')
+	if [[ $wysreport == "yes" ]] ; then
+		wyslog=true
+		logdir="$HOME/Library/Logs/wys"
+		! [[ -d "$logdir" ]] && mkdir -p "$logdir"
+		echo "wys: configured to log scan reports."
+	fi
 fi
 
 # read silent mode
 silent=false
-if ! $silentoverride ; then
-	silentmode=$(echo "$configfull" | awk -F= '/silent/{print $2}')
-	if [[ $silentmode == "yes" ]] ; then
-		silent=true
-		echo "wys: configured to run in silent mode."
+if ! $discrete ; then
+	if ! $silentoverride ; then
+		silentmode=$(echo "$configfull" | awk -F= '/silent/{print $2}')
+		if [[ $silentmode == "yes" ]] ; then
+			silent=true
+			echo "wys: configured to run in silent mode."
+		else
+			echo "wys: silent mode disabled."
+		fi
 	else
-		echo "wys: silent mode disabled."
+		silent=true
 	fi
-else
-	silent=true
 fi
 
 # read VirusTotal API key
@@ -806,12 +810,6 @@ if [[ $vtkey != "" ]] ; then
 	echo "wys: VirusTotal API Key detected."
 else
 	echo "wys: VirusTotal API Key not found."
-fi
-
-# discrete check
-if $discrete ; then
-	silent=false
-	wyslog=false
 fi
 
 # temporary subdirectory for certificate dumps
@@ -1138,7 +1136,7 @@ extension="${filename##*.}"
 # look for file-specific icons
 if [[ -d "$filepath" ]] ; then
 	# first check if directory is empty
-	if ! [ "$(ls -A $filepath)" ] ; then
+	if ! [[ $(ls -A "$filepath") ]] ; then
 		echo "wys: directory $filename is empty." >&2
 		_notify "Error: empty directory" "$filename"
 		continue
