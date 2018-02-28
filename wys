@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 3
+# wys v1.1 beta 4
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -46,7 +46,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 3"
+bversion=" beta 4"
 
 # command line options
 silentoverride=false
@@ -1061,20 +1061,21 @@ _clamav () {
 	fi
 }
 
-# fping VirusTotal
-_vtfping () {
-pings=3
-until (( pings == 0 )) ; do
-	fping -c1 -t300 "virustotal.com" 2>/dev/null 1>/dev/null
-	if (( $? == 0 )); then
+# ping VirusTotal for online/offline check
+_vtping () {
+	(( pings = 3 ))
+	while [[ $pings -ne 0 ]]
+	do
+		ping -q -c 1 "virustotal.com" &>/dev/null
+		rc=$?
+		[[ $rc -eq 0 ]] && (( pings = 1 ))
+		(( pings = pings - 1 ))
+	done
+	if [[ $rc -eq 0 ]] ; then
 		vtaccess=true
-		break
-	fi
-	if (( --pings == 0 )); then
+	else
 		vtaccess=false
 	fi
-	sleep 8
-done
 }
 
 # access Virus Total function
@@ -1136,6 +1137,12 @@ extension="${filename##*.}"
 
 # look for file-specific icons
 if [[ -d "$filepath" ]] ; then
+	# first check if directory is empty
+	if ! [ "$(ls -A $filepath)" ] ; then
+		echo "wys: directory $filename is empty." >&2
+		_notify "Error: empty directory" "$filename"
+		continue
+	fi
 	if [[ $extension =~ ^(app|APP)$ ]] ; then
 		iconfile=$(defaults read "$filepath$iplistpath" CFBundleIconFile 2>/dev/null)
 		[[ $iconfile != *"."* ]] && iconfile="$iconfile.icns"
@@ -1533,7 +1540,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# check hash at VirusTotal
 	if $vtaccess ; then
-		_vtfping
+		_vtping
 		if ! $vtaccess ; then
 			echo "wys: could not reach VirusTotal." >&2
 			_notify "Error: VirusTotal offline" "Not connected to the internet?"
@@ -1841,7 +1848,7 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
 	# check hash at VirusTotal
 	if $vtaccess ; then
-		_vtfping
+		_vtping
 		if ! $vtaccess ; then
 			echo "wys: could not reach VirusTotal." >&2
 			_notify "Error: VirusTotal offline" "Not connected to the internet?"
