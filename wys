@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 5
+# wys v1.1 beta 6
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -46,7 +46,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 5"
+bversion=" beta 6"
 
 # command line options
 silentoverride=false
@@ -977,46 +977,54 @@ _cscomp () {
 _clamav () {
 	clamlist=$("$clampath" -riz --block-encrypted=yes --block-macros=yes --detect-broken=yes --detect-pua=yes --no-summary "$filepath")
 	if [[ $clamlist != "" ]] ; then
-		clamlist=$(echo "$clamlist" | awk -F": " '{print substr($0, index($0,$2))}' | sed 's/ FOUND$//g')
+		clamlist=$(echo "$clamlist" | awk -F": " '{print substr($0, index($0,$2))}' | sed 's/ FOUND$//g' | grep -v "^$")
 		clamhits=$(echo "$clamlist" | wc -l | xargs)
 		clamsingle=false
-		if [ $clamhits -eq 1 ] ; then
+		if [ $clamhits -eq 1 ] ; then # only one result
 			clamfind="$clamlist"
 			clamsingle=true
-		else
-			clamfind=$(echo "$clamlist" | uniq -c | sort | awk '{print substr($0, index($0,$2))}')
-			clamchlist="$clamfind"
+		else # multiple results
+			clamfind=$(echo "$clamlist" | uniq -c | sort | awk '{print substr($0, index($0,$2))}') # boil down
+			clamhits=$(echo "$clamfind" | wc -l | xargs)
+			clamsinglemulti=false
+			clammulti=false
+			if [ $clamhits -eq 1 ] ; then # multiple instances of one result
+				clamsinglemulti=true
+			else # multiple results
+				clammulti=true
+				clamchlist="$clamfind"
+			fi
 		fi
 		clamother=false
 		if [[ $(echo "$clamfind" | grep "^Heuristics.OLE2.ContainsMacros") != "" ]] ; then
 			_beep
 			_notify "⚠️ ClamAV: potential macro issue!" "$filename"
-			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^Heuristics.OLE2.ContainsMacros")
+			$clammulti && clamchlist=$(echo "$clamchlist" | grep -v "^Heuristics.OLE2.ContainsMacros")
 			clamother=true
 			clamstring="POTENTIAL MACRO ISSUE"
 		fi
 		if [[ $(echo "clamfind" | grep "^Broken.Executable") != "" ]] ; then
 			_beep
 			_notify "⚠️ ClamAV: broken executable!" "$filename"
-			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^Broken.Executable")
+			$clammulti && clamchlist=$(echo "$clamchlist" | grep -v "^Broken.Executable")
 			clamother=true
 			clamstring="ISSUE"
 		fi
 		if [[ $(echo "$clamfind" | grep "^Encrypted\.") != "" ]] ; then
 			_beep
 			_notify "⚠️ ClamAV: encrypted file!" "$filename"
-			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^Encrypted\.")
+			$clammulti && clamchlist=$(echo "$clamchlist" | grep -v "^Encrypted\.")
 			clamother=true
 			clamstring="ISSUE"
 		fi
 		if [[ $(echo "$clamfind" | grep "^PUA\.") != "" ]] ; then
 			_beep
 			_notify "⚠️ ClamAV: PUA detected!" "$filename"
-			! $clamsingle && clamchlist=$(echo "$clamchlist" | grep -v "^PUA\.")
+			$clammulti && clamchlist=$(echo "$clamchlist" | grep -v "^PUA\.")
 			clamother=true
 			clamstring="PUA DETECTED"
 		fi
-		if $clamsingle ; then # only one ClamAV result
+		if $clamsingle || $clamsinglemulti ; then # only one ClamAV result
 			if ! $clamother ; then # malware detected
 				_beep
 				_notify "☠️ ClamAV: malware detected!" "$filename"
@@ -1457,6 +1465,16 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 	fi
 
+	# scan for files with executable permissions
+	if [[ $filetype == "directory" ]] && [[ $executable != "" ]] ; then
+		cd "$filepath"
+		# regular files only, executable permissions, don't follow symlinks
+		execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
+		cd /
+		xfnumber=$(echo "$execfiles" | wc -l | xargs)
+		[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
+	fi
+
 	# check image encryption & verify
 	if [[ $extension =~ ^(dmg|sparsebundle|sparseimage)$ ]] ; then
 		encrypted=$(hdiutil isencrypted "$filepath" 2>&1 | awk -F": " '/^encrypted/{print $2}')
@@ -1728,20 +1746,13 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		echo -e "sign auth:\tUNSIGNED" >> "$tmploc"
 	fi
 
-	# scan for executable files ### IMPROVE AS DEEP-SCAN (v1.1)
+	# deal with executable files ### IMPROVE AS DEEP-SCAN (v1.1)
 	if [[ $filetype == "directory" ]] ; then
 		if [[ $executable != "" ]] ; then
 
 			shortexec=$(echo "$executable" | sed "s:^$filepath::")
 			xfunsigned="unsigned files with executable permissions:"
 			xfothersign="executable files with other code signatures:"
-
-			# regular files only, executable permissions, don't follow symlinks
-			cd "$filepath"
-			execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
-			cd /
-			xfnumber=$(echo "$execfiles" | wc -l | xargs)
-			[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
 
 			# check code signature of results and write into separate lists
 			while read -r execfile
