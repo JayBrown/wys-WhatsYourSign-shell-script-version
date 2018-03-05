@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 6
+# wys v1.1 beta 7
 #
 # shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -46,7 +46,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 6"
+bversion=" beta 7"
 
 # command line options
 silentoverride=false
@@ -975,7 +975,7 @@ _cscomp () {
 
 # ClamAV scan function
 _clamav () {
-	clamlist=$("$clampath" -riz --block-encrypted=yes --block-macros=yes --detect-broken=yes --detect-pua=yes --no-summary "$filepath")
+	clamlist=$("$clampath" -iz --block-encrypted=yes --block-macros=yes --detect-broken=yes --detect-pua=yes --no-summary "$1")
 	if [[ $clamlist != "" ]] ; then
 		clamlist=$(echo "$clamlist" | awk -F": " '{print substr($0, index($0,$2))}' | sed 's/ FOUND$//g' | grep -v "^$")
 		clamhits=$(echo "$clamlist" | wc -l | xargs)
@@ -1047,7 +1047,7 @@ _clamav () {
 				# check first if malware remains
 				clamremhits=$(echo "$clamchlist" | grep -v "^$" | wc -l | xargs)
 				if [[ $clamremhits == "" ]] || [[ $clamremhits == "0" ]] ; then # only other results
-					echo -e "ClamAV:\t\tMULTIPLE MALWARE ISSUES:" >> "$tmploc"
+					echo -e "ClamAV:\t\tMULTIPLE ISSUES:" >> "$tmploc"
 				else # malware also detected
 					_beep
 					echo -e "ClamAV:\t\tMULTIPLE MALWARE RESULTS & ISSUES:" >> "$tmploc"
@@ -1571,7 +1571,15 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# clamscan
-	$clamav && _clamav
+	if $clamav ; then
+		if [[ $filetype == "directory" ]] ; then
+			if [[ $executable != "" ]] && [[ $executable != "none" ]] ; then
+				 _clamav "$executable"
+			fi
+		else
+			_clamav "$filepath"
+		fi
+	fi
 
 	# bundle & signature identifiers
 	if ! $unsigned ; then
@@ -1872,7 +1880,7 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	fi
 
 	# clamscan
-	$clamav && _clamav
+	$clamav && _clamav "$filepath"
 
 	# dump the package table of contents (header)
 	pkgheader=$(xar --dump-toc=- -f "$filepath")

@@ -67,7 +67,6 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
   * renewed an expired certificate,
   * sold his product to another developer, or
   * received a new certificate (e.g. after company rebranding etc.).
-* ClamAV scans are run with the `-r` and `-z` options, so they can take longer on older Macs.
 * VirusTotal results can produce false warnings, depending on the antivirus software involved; examples are:
   * **BBEdit:** VEX189B.Webshell (Bkav);
   * false positives like applications with `libswiftDispatch.dylib` marked as MacOS.BitCoinMiner-AS (Avast, AVG).
@@ -134,7 +133,8 @@ Temporary files in `/tmp` will be automatically removed by **wys** after every s
 ## Beta status
 * still needs general testing, lots of testing
 * timestamp information in Info.plist? (research) … approximate signing/creation time?
-* deep scan: parse CodeResources to thoroughly check for modified and unverified/added files (v1.1)
+* deep scan: parse CodeResources to thoroughly check for modified and unverified/added files (v1.1 rc)
+* XProtect yara scans (relies on release of UXProtect CLI)
 
 ## Thank you
 * Patrick Wardle (for the original **WhatsYourSign** and all his other great security tools)
