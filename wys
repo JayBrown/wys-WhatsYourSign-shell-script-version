@@ -1,12 +1,9 @@
 #!/bin/bash
 
-# wys v1.1 beta 7
+# wys v1.1 beta 8
 #
-# shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
+# extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
-#
-# If you have a VirusTotal API key, run wys at least once, and then you can store the key for use by wys with the command:
-# echo "vtkey=YourVirusTotalAPIKey" >> ~/.config/wys/wys.cfg
 #
 # GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
 
@@ -46,7 +43,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 7"
+bversion=" beta 8"
 
 # command line options
 silentoverride=false
@@ -1467,10 +1464,12 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# scan for files with executable permissions
 	if [[ $filetype == "directory" ]] && [[ $executable != "" ]] ; then
+		[[ $executable != "none" ]] && shortexec=$(echo "$executable" | sed "s:^$filepath::")
 		cd "$filepath"
 		# regular files only, executable permissions, don't follow symlinks
-		execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | grep -v "^$shortexec$" | sort)
+		execfiles=$(find -P . -mindepth 1 -type f -perm +111 -print | sed 's/^\.//g' | sort)
 		cd /
+		[[ $executable != "none" ]] && execfiles=$(echo "$execfiles" | grep -v "^$shortexec$")
 		xfnumber=$(echo "$execfiles" | wc -l | xargs)
 		[ $xfnumber -gt 100 ] && _notify "$xfnumber executable files: please wait..." "$filename"
 	fi
@@ -1613,10 +1612,14 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# codesign verification
+	msigmissing=false
 	if ! $unsigned ; then
 		csverify_raw=$(codesign --verify --verbose=4 --deep "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
-		csverify_raw=$(echo "$csverify_raw" | grep -v "^--validated:")
-		csverify_all=$(echo "$csverify_raw" | grep "^$filepath: " | awk -F": " '{print $2}')
+		csverify_raw=$(echo "$csverify_raw" | grep -v "^--validated:" | grep -v "^$")
+		csverify_all=$(echo "$csverify_raw" | grep "^/" | grep -F "$filepath: " | awk -F": " '{print $2}')
+		### populate: missing, added, modified
+		### added || modified: codesign
+		### added || modified: if file then remove from perm111 list
 		count=1
 		while read -r csverify
 		do
@@ -1627,7 +1630,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			fi
 			(( count++ ))
 		done < <(echo "$csverify_all")
-		csverify_alt=$(echo "$csverify_raw" | grep -v "^$filepath: ")
+		csverify_alt=$(echo "$csverify_raw" | grep -vF "$filepath: ")
 		if [[ "$csverify_alt" != "" ]] ; then
 			_beep
 			_notify "⚠️ CodeResources: warning!" "$filename"
@@ -1639,10 +1642,23 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		fi
 		echo "" >> "$tmploc"
 	else
-		# check if CodeResources exist ### IF CS FILE EXISTS, RESET TO: unsigned=false ?
-		### echo UNSIGNED: MODIFIED + notify CS warning
-		### set csremoved=true >>> later: manual verification using Code Resources
-		echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
+		crsubpath="_CodeSignature/CodeResources"
+		if [[ -f "$filepath/Contents/$crsubpath" ]] ; then
+			msigmissing=true
+			crloc="$filepath/Contents/$crsubpath"
+		elif [[ -f "$filepath/Versions/Current/$crsubpath" ]] ; then
+			msigmissing=true
+			crloc=$(abspath "$filepath/Versions/Current/$crsubpath")
+		elif [[ -f "$filepath/$crsubpath" ]] ; then
+			msigmissing=true
+			crloc="$filepath/$crsubpath"
+		fi
+		if $msigmissing ; then
+			_notify "⚠️ Error: main signature missing!" "$filename"
+			echo -e "verification:\tMAIN EXECUTABLE: code signature missing\n" >> "$tmploc"
+		else
+			echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
+		fi
 	fi
 
 	# echo security verification result
@@ -1758,7 +1774,6 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	if [[ $filetype == "directory" ]] ; then
 		if [[ $executable != "" ]] ; then
 
-			shortexec=$(echo "$executable" | sed "s:^$filepath::")
 			xfunsigned="unsigned files with executable permissions:"
 			xfothersign="executable files with other code signatures:"
 
