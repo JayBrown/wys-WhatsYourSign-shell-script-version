@@ -30,6 +30,7 @@ The original **WhatsYourSign** is described as follows:
 * prints Gatekeeper `spctl` assessment (packages: `install`; other: `execute`) and the associated source information,
 * prints a CSC's timestamp or signing time (depending on the signature),
 * prints an IPSC's signing timestamp and creator from a package's TOC,
+* explicitly checks entitlements for app sandboxing,
 * deep-scans a bundle to find
   * executable files that are unsigned, or
   * that have a different code signature than the main executable, and
