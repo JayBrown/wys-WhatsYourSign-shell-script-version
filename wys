@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 11
+# wys v1.1 beta 12
 #
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -43,7 +43,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 11"
+bversion=" beta 12"
 
 # command line options
 silentoverride=false
@@ -1621,6 +1621,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# codesign verification
 	msigmissing=false
+	msigerror=false
 	csreport=false
 	if ! $unsigned ; then
 		csverify_raw=$(codesign --verify --verbose=4 --deep "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
@@ -1631,13 +1632,23 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		while read -r csverify
 		do
 			if [[ $count == "1" ]] ; then
-				echo -e "verification:\t$csverify" >> "$tmploc"
+				if [[ $csverify == "invalid signature (code or signature have been modified)" ]] ; then
+					_beep
+					msigerror=true
+					echo -e "verification:\tMAIN EXECUTABLE: $csverify" >> "$tmploc"
+					_notify "⚠️ Issues: main executable!" "$filename"
+				else
+					echo -e "verification:\t$csverify" >> "$tmploc"
+				fi
 			else
 				echo -e "\t\t$csverify" >> "$tmploc"
 			fi
 			(( count++ ))
 		done < <(echo "$csverify_all")
 		echo "" >> "$tmploc"
+
+	fi
+	if ! $unsigned && ! $msigerror ; then
 		# populate list of missing files
 		fdmissing=$(echo "$csverify_raw" | grep "^file missing: " | awk -F": " '{print $2}' | sed "s-^$filepath-\.-g")
 		if [[ $fdmissing != "" ]] ; then
@@ -1708,9 +1719,14 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			crloc="$filepath/$crsubpath"
 		fi
 		if $msigmissing ; then
-			_notify "⚠️ Error: main signature missing!" "$filename"
-			echo -e "verification:\tMAIN EXECUTABLE: code signature missing\n" >> "$tmploc"
-			### manual parse CodeResources (DEEP-SCAN)
+			if ! $msigerror ; then
+				_notify "⚠️ Error: main signature missing!" "$filename"
+				echo -e "verification:\tMAIN EXECUTABLE: code signature missing\n" >> "$tmploc"
+			fi
+			### manually parse & verify CodeResources (DEEP-SCAN)
+			### write into f/d/o added/modded
+			### if fadded || fmodded > remove from perm111 list
+			### avoid double codesign check (perm111 list & CodeResources)
 		else
 			echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
 		fi
