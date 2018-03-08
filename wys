@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 10
+# wys v1.1 beta 11
 #
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -43,7 +43,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 10"
+bversion=" beta 11"
 
 # command line options
 silentoverride=false
@@ -1196,6 +1196,16 @@ if ! [[ -r "$filepath" ]] ; then
 	_notify "❌ File not readable!" "$filename"
 	continue
 fi
+
+# precheck for "Folder"
+mdlsall=$(mdls "$filepath" 2>/dev/null)
+itemtype=$(echo "$mdlsall" | awk -F"= " '/kMDItemKind/{print $2}' | sed 's/^"\(.*\)"$/\1/')
+if [[ $itemtype =~ ^(Folder| Folder)$ ]] ; then
+	_beep
+	_notify "❌ Plain folder: aborting scan…" "$filename"
+	continue
+fi
+
 _notify "Scanning..." "$filename"
 
 # initial stuff
@@ -1252,8 +1262,6 @@ fi
 echo -e "file type:\t$filetype" >> "$tmploc"
 
 # determine item type (mdls)
-mdlsall=$(mdls "$filepath" 2>/dev/null)
-itemtype=$(echo "$mdlsall" | awk -F"= " '/kMDItemKind/{print $2}' | sed 's/^"\(.*\)"$/\1/')
 if [[ $itemtype == "" ]] ; then
 	if [[ $filetype != "directory" ]] ; then
 		echo -e "item type:\tn/a\n" >> "$tmploc"
@@ -1702,10 +1710,10 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		if $msigmissing ; then
 			_notify "⚠️ Error: main signature missing!" "$filename"
 			echo -e "verification:\tMAIN EXECUTABLE: code signature missing\n" >> "$tmploc"
+			### manual parse CodeResources (DEEP-SCAN)
 		else
 			echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
 		fi
-		### manual parse CodeResources
 	fi
 
 	# echo security verification result
