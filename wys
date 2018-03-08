@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 9
+# wys v1.1 beta 10
 #
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -43,7 +43,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 9"
+bversion=" beta 10"
 
 # command line options
 silentoverride=false
@@ -1613,13 +1613,12 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 	# codesign verification
 	msigmissing=false
+	csreport=false
 	if ! $unsigned ; then
 		csverify_raw=$(codesign --verify --verbose=4 --deep "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
 		csverify_raw=$(echo "$csverify_raw" | grep -v "^--validated:" | grep -v "^$")
 		csverify_all=$(echo "$csverify_raw" | grep "^/" | grep -F "$filepath: " | awk -F": " '{print $2}')
-		### populate: missing, added, modified
-		### added || modified: codesign
-		### added || modified: if file then remove from perm111 list
+		# verification digest
 		count=1
 		while read -r csverify
 		do
@@ -1630,17 +1629,64 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			fi
 			(( count++ ))
 		done < <(echo "$csverify_all")
-		csverify_alt=$(echo "$csverify_raw" | grep -vF "$filepath: ")
-		if [[ "$csverify_alt" != "" ]] ; then
-			_beep
-			_notify "⚠️ CodeResources: warning!" "$filename"
-			while read -r acsverify
-			do
-				acsverify=$(echo "$acsverify" | sed "s-: $filepath-: \.-")
-				echo -e "\t\t$acsverify" >> "$tmploc"
-			done < <(echo "$csverify_alt")
-		fi
 		echo "" >> "$tmploc"
+		# populate list of missing files
+		fdmissing=$(echo "$csverify_raw" | grep "^file missing: " | awk -F": " '{print $2}' | sed "s-^$filepath-\.-g")
+		if [[ $fdmissing != "" ]] ; then
+			_beep
+			csreport=true
+			_notify "⚠️ Files were removed!" "$filename"
+		fi
+		# populate lists of added files
+		fdaddedlist=$(echo "$csverify_raw" | grep "^file added: " | awk -F": " '{print $2}')
+		if [[ $fdaddedlist != "" ]] ; then
+			_beep
+			csreport=true
+			_notify "⚠️ Files were added!" "$filename"
+			dadded=""
+			fadded=""
+			oadded=""
+			while read -r fdadded
+			do
+				fdadded=$(abspath "$fdadded")
+				fdacert=$(codesign -dvv "$fdadded" 2>&1 | grep "^Authority=" | awk -F= '{print $2}' | head -1)
+				[[ $fdacert == "" ]] && fdacert="UNSIGNED"
+				fdadded=$(echo "$fdadded" | sed "s-^$filepath--g")
+				if [[ -d "$filepath$fdadded" ]] ; then
+					dadded="$dadded.$fdadded: $fdacert\n"
+				elif [[ -f "$filepath$fdadded" ]] ; then
+					fadded="$fadded.$fdadded: $fdacert\n"
+					execfiles=$(echo "$execfiles" | grep -v "^$fdadded$")
+				else
+					oadded="$oadded.$fdadded: $fdacert\n"
+				fi
+			done < <(echo "$fdaddedlist")
+		fi
+		# populate lists of modified files
+		fdmoddedlist=$(echo "$csverify_raw" | grep "^file modified: " | awk -F": " '{print $2}')
+		if [[ $fdmoddedlist != "" ]] ; then
+			_beep
+			csreport=true
+			_notify "⚠️ Files were modified!" "$filename"
+			dmodded=""
+			fmodded=""
+			omodded=""
+			while read -r fdmodded
+			do
+				fdmodded=$(abspath "$fdmodded")
+				fdmcert=$(codesign -dvv "$fdmodded" 2>&1 | grep "^Authority=" | awk -F= '{print $2}' | head -1)
+				[[ $fdmcert == "" ]] && fdmcert="UNSIGNED"
+				fdmodded=$(echo "$fdmodded" | sed "s-^$filepath--g")
+				if [[ -d "$filepath$fdmodded" ]] ; then
+					dmodded="$dmodded.$fdmodded: $fdmcert\n"
+				elif [[ -f "$filepath$fdmodded" ]] ; then
+					fmodded="$fmodded.$fdmodded: $fdmcert\n"
+					execfiles=$(echo "$execfiles" | grep -v "^$fdmodded$")
+				else
+					omodded="$omodded.$fdmodded: $fdmcert\n"
+				fi
+			done < <(echo "$fdmoddedlist")
+		fi
 	else
 		crsubpath="_CodeSignature/CodeResources"
 		if [[ -f "$filepath/Contents/$crsubpath" ]] ; then
@@ -1659,6 +1705,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		else
 			echo -e "verification:\tUNSIGNED\n" >> "$tmploc"
 		fi
+		### manual parse CodeResources
 	fi
 
 	# echo security verification result
@@ -1707,7 +1754,16 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 		asource=$(spctl -a -t execute --context context:primary-signature -v "$filepath" 2>&1 | awk -F"=" '/source=/{print $2}')
 		[[ $asource == "" ]] && asource="n/a"
 	fi
-	echo -e "source:\t\t$asource\n" >> "$tmploc"
+	echo -e "source:\t\t$asource" >> "$tmploc"
+	if [[ $asource == "Mac App Store" ]] ; then
+		if ! [[ -f "$filepath/Contents/_MASReceipt/receipt" ]] ; then
+			echo -e "MAS receipt:\tMISSING\n" >> "$tmploc"
+		else
+			echo -e "MAS receipt:\tlocated\n" >> "$tmploc"
+		fi
+	else
+		echo "" >> "$tmploc"
+	fi
 
 	if ! $unsigned ; then
 
@@ -1747,7 +1803,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			echo -e "\ntimestamp:\t$timestamp\n" >> "$tmploc"
 		fi
 
-		# parse entitlements
+		# parse entitlements & check for sandboxing
 		csignc=$(echo "$csign" | LANG=C LC_CTYPE=C sed 's/^.*\<\?xml/\<\?xml/g' | grep "<.*>")
 		echo "$csignc" > "$ptmploc"
 		enthr=$(plutil -p "$ptmploc" | grep -v "^{" | grep -v "^}" | sed -e 's/^[ \t]*//' | grep -v "^$")
@@ -1775,6 +1831,16 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	else
 		echo -e "sign auth:\tUNSIGNED" >> "$tmploc"
 	fi
+
+	# print added, modified or missing files
+	$csreport && echo "" >> "$tmploc"
+	[[ $fadded != "" ]] && echo -e "added regular files:\n$fadded" >> "$tmploc"
+	[[ $dadded != "" ]] && echo -e "added directories:\n$dadded" >> "$tmploc"
+	[[ $oadded != "" ]] && echo -e "added files (other):\n$oadded" >> "$tmploc"
+	[[ $fmodded != "" ]] && echo -e "modified regular files:\n$fmodded" >> "$tmploc"
+	[[ $dmodded != "" ]] && echo -e "modified directories:\n$dmodded" >> "$tmploc"
+	[[ $omodded != "" ]] && echo -e "modified files (other):\n$omodded" >> "$tmploc"
+	[[ $fdmissing != "" ]] && echo -e "missing files:\n$dadded" >> "$tmploc"
 
 	# deal with executable files ### IMPROVE AS DEEP-SCAN (v1.1)
 	if [[ $filetype == "directory" ]] ; then
@@ -1812,30 +1878,32 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 			# count number of lines (files with other code signatures) ### DELETE WITH DEEP-SCAN
 			snumber=$(echo -e "$xfothersign" | wc -l | xargs)
+			! $csreport && echo "" >> "$tmploc"
 			if [[ $snumber != "1" ]] ; then
 				if [ $snumber -gt 20 ] ; then
 					smany=true
-					echo -e "\nexecutable files with other code signatures:\n[see auxiliary list]" >> "$tmploc"
+					echo -e "executable files with other code signatures:\n[see auxiliary list]" >> "$tmploc"
 					echo -e "$filename\n$filepath\n\n$xfothersign" > "$stmploc"
 				else
-					echo -e "\n$xfothersign" >> "$tmploc"
+					echo -e "$xfothersign" >> "$tmploc"
 				fi
 			else
-				echo -e "\n$xfothersign\nnone" >> "$tmploc"
+				echo -e "$xfothersign\nnone" >> "$tmploc"
 			fi
 
 			# count number of lines (files without code signatures)
 			unumber=$(echo -e "$xfunsigned" | wc -l | xargs)
+			echo "" >> "$tmploc"
 			if [[ $unumber != "1" ]] ; then
 				if [ $unumber -gt 10 ] ; then
 					umany=true
-					echo -e "\nunsigned files with executable permissions:\n[see auxiliary list]" >> "$tmploc"
+					echo -e "unsigned files with executable permissions:\n[see auxiliary list]" >> "$tmploc"
 					echo -e "$filename\n$filepath\n\n$xfunsigned" > "$utmploc"
 				else
-					echo -e "\n$xfunsigned" >> "$tmploc"
+					echo -e "$xfunsigned" >> "$tmploc"
 				fi
 			else
-				echo -e "\n$xfunsigned\nnone" >> "$tmploc"
+				echo -e "$xfunsigned\nnone" >> "$tmploc"
 			fi
 		fi
 	fi
