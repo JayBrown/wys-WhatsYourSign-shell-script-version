@@ -21,6 +21,9 @@ The original **WhatsYourSign** is described as follows:
 * verifies DMG checksums and prints disk image information on DMGs, sparsebundles and sparseimages,
 * verifies a signed bundle for modified, added or missing files with `codesign`,
 * compares a file hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
+* compares a file hash (checksum) stored in a checksum file, e.g. `*.sha256`, with the hash calculated for the local file (regular files only),
+* validates a regular file against its **GnuPG** signatures contained in `.asc` or `.sig` files (optional),
+* accounts for macOS filename corruptions after download, e.g. `*.sha256.txt` or `*.asc.txt`,
 * checks the calculated hash (file or executable) against the VirusTotal database for malware detection (optional),
 * scans for malware using `clamscan` installed as part of **ClamXAV** or **ClamAV** (optional),
 * verifies code signing certificates (CSCs) against the current revocation list using `security` and accounts for potentially spoofed code signatures,
@@ -30,7 +33,7 @@ The original **WhatsYourSign** is described as follows:
 * prints Gatekeeper `spctl` assessment (packages: `install`; other: `execute`) and the associated source information,
 * prints a CSC's timestamp or signing time (depending on the signature),
 * prints an IPSC's signing timestamp and creator from a package's TOC,
-* explicitly checks entitlements for app sandboxing,
+* explicitly checks entitlements for app sandboxing, and looks for the MAS receipt,
 * deep-scans a bundle to find
   * executable files that are unsigned, or
   * that have a different code signature than the main executable, and
@@ -53,9 +56,19 @@ If you are using the macOS Finder, it's best to ignore **wys** and use Patrick's
 ### Usage in default macOS Finder
 You can add the **wys** shell script to an **Automator** service/workflow, which will then be available in the **Services** contextual submenu; you can also assign a keyboard shortcut for it in **System Preferences**.
 
+### GnuPG
+* Install `gpg` as part of the **[GPG Suite](https://gpgtools.org)** or the original **[GnuPG for macOS](https://sourceforge.net/p/gpgosx/docu/Download/)**.
+* Note: **GnuPG** can also be installed using **[Homebrew](https://brew.sh)**: `brew install gnupg`
+* Note: **wys** will account for the install locations used by
+  * **GPG Suite** (`/usr/local/MacGPG2/bin`), and by
+  * **GnuPG for macOS** and **Homebrew** (`/usr/local/bin`), **[MacPorts](https://www.macports.org)** (`/opt/local/bin`) and **[Fink](http://www.finkproject.org)** (`/sw/bin`).
+
 ### ClamAV
 * Install **[ClamXAV](https://www.clamxav.com)** or the original freeware version **[ClamAV](https://www.clamav.net)**.
-* Note: **ClamAV** can also be installed using **[Homebrew](https://brew.sh)**.
+* Note: **ClamAV** can also be installed using **[Homebrew](https://brew.sh)**: `brew install clamav`
+* Note: **wys** will account for the install locations used by
+  * **ClamXAV** (`/usr/local/clamXav/bin`), and by
+  * **Homebrew** (`/usr/local/bin`), **[MacPorts](https://www.macports.org)** (`/opt/local/bin`) and **[Fink](http://www.finkproject.org)** (`/sw/bin`).
 
 ### VirusTotal API key
 * Create a free online account at **[VirusTotal](https://www.virustotal.com)**;
@@ -92,8 +105,7 @@ Options:
 --silent	force silent mode for current scans
 --status	print wys configuration status
 
---config [clamscan | report | silent | vt <key>]		modify wys configuration file
-	clamscan	toggle ClamAV scan
+--config [report | silent | vt <key>]		modify wys configuration file
 	report		toggle logging
 	silent		toggle silent mode
 	vt <key>	enter VirusTotal API key
@@ -112,9 +124,6 @@ Options:
 #### Silent mode
 * In the **wys config file** replace `silent=no` with `silent=yes` and **save**.
 * **wys** will scan silently in the background and only log the SKIDs and (if logging is enabled) the scan results.
-
-#### ClamAV scan
-In the **wys config file** replace `clamscan=no` with `clamscan=yes` and **save**.
 
 #### VirusTotal API key
 In the **wys config file** look for the line that begins with `vtkey=`, paste the API key behind the `=` (equals sign) without whitespace, and **save**.
@@ -135,7 +144,8 @@ Temporary files in `/tmp` will be automatically removed by **wys** after every s
 * still needs general testing, lots of testing
 * timestamp information in Info.plist? (research) … approximate signing/creation time?
 * deep scan: parse CodeResources to thoroughly check for modified and unverified/added files (v1.1 rc)
-* XProtect yara scans (relies on release of UXProtect CLI)
+* validate MAS receipts (maybe)
+* XProtect yara scans (depends on release of UXProtect CLI)
 
 ## Thank you
 * Patrick Wardle (for the original **WhatsYourSign** and all his other great security tools)

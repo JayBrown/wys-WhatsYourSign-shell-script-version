@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 12
+# wys v1.1 beta 14
 #
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -43,7 +43,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 12"
+bversion=" beta 14"
 
 # command line options
 silentoverride=false
@@ -101,30 +101,6 @@ elif [[ $1 == "--config" ]] ; then
 			echo -e "$configfull\nsilent=no" > "$configloc"
 			echo "wys: silent mode disabled."
 		fi
-	elif [[ $1 =~ ^(clamscan|clam|clamav|clamxav)$ ]] ; then
-		clamstatus=$(echo "$configfull" | awk -F= '/^clamscan/{print $2}')
-		configfull=$(echo "$configfull" | grep -v "^clamscan=")
-		if [[ $clamstatus == "no" ]] ; then
-			clampath="/usr/local/clamXav/bin/clamscan"
-			if ! [[ -f $clampath ]] ; then
-				clamcheck=$(clamscan --version 2>/dev/null)
-				if [[ $clamcheck != "" ]] ; then
-					clampath="clamscan"
-				else
-					clampath=""
-				fi
-			fi
-			if [[ $clampath != "" ]] ; then
-				echo -e "$configfull\nclamscan=yes" > "$configloc"
-				echo "wys: clamscan enabled."
-			else
-				echo "Error: clamscan is not in your \$PATH."
-				echo "wys: clamscan disabled."
-			fi
-		else
-			echo -e "$configfull\nclamscan=no" > "$configloc"
-			echo "wys: clamscan disabled."
-		fi
 	elif [[ $1 == "" ]] ; then
 		echo "wys: no argument specified." >&2
 	else
@@ -136,22 +112,19 @@ elif [[ $1 == "--status" ]] ; then
 	if [[ $configfull == "" ]] ; then
 		echo "wys: config is empty. Please run 'wys --init' first." >&2
 	else
-		clamstatus=$(echo "$configfull" | awk -F= '/^clamscan/{print $2}')
-		[[ $clamstatus == "" ]] && clamstatus="n/a"
 		logstatus=$(echo "$configfull" | awk -F= '/^report/{print $2}')
 		[[ $logstatus == "" ]] && logstatus="n/a"
 		silentstatus=$(echo "$configfull" | awk -F= '/^silent/{print $2}')
 		[[ $silentstatus == "" ]] && silentstatus="n/a"
 		vtkey=$(echo "$configfull" | awk -F= '/^vtkey/{print $2}')
 		[[ $vtkey == "" ]] && vtkey="n/a"
-		echo -e "ClamAV scan:\t$clamstatus"
 		echo -e "logging:\t$logstatus"
 		echo -e "silent mode:\t$silentstatus"
 		echo -e "VirusTotal key:\t$vtkey"
 	fi
 	exit
 elif [[ $1 == "--help" ]] ; then
-	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan filepath(s) or file(s) from the command line\n\nOptions:\n\n--discrete\tforce-disable silent mode and all logging\n--init\t\tinitialize wys\n--silent\tforce silent mode for current scans\n--status\tprint wys configuration status\n\n--config [clamscan | report | silent | vt <key>]\t\tmodify wys configuration file\n\tclamscan\ttoggle ClamAV scan\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
+	echo -e "wys $version$bversion\n\nwys [<file(path) 1> ... <file(path) n>]\t\tscan filepath(s) or file(s) from the command line\n\nOptions:\n\n--discrete\tforce-disable silent mode and all logging\n--init\t\tinitialize wys\n--silent\tforce silent mode for current scans\n--status\tprint wys configuration status\n\n--config [report | silent | vt <key>]\t\tmodify wys configuration file\n\treport\t\ttoggle logging\n\tsilent\t\ttoggle silent mode\n\tvt <key>\tenter VirusTotal API key\n\n--help\t\tthis help page"
 	exit
 elif [[ $1 == "--silent" ]] || [[ $1 == "--quiet" ]] ; then
 	echo "wys: silent mode forced for current scans."
@@ -752,24 +725,48 @@ if ! [[ -f "$configloc" ]] ; then
 fi
 configfull=$(cat "$configloc")
 
-# read clamscan status
+# check for clamscan
 clamav=false
-clamstatus=$(echo "$configfull" | awk -F= '/clamscan/{print $2}')
-if [[ $clamstatus == "yes" ]] ; then
-	clampath="/usr/local/clamXav/bin/clamscan"
-	if ! [[ -f $clampath ]] ; then
-		clamcheck=$(clamscan --version 2>/dev/null)
-		if [[ $clamcheck != "" ]] ; then
-			clampath="clamscan"
-			clamav=true
+clampath="/usr/local/clamXav/bin/clamscan"
+if ! [[ -f $clampath ]] ; then
+	clamcheck=$(clamscan --version 2>/dev/null)
+	if [[ $clamcheck != "" ]] ; then
+		clampath="clamscan"
+		clamav=true
+	else
+		clampath=""
+	fi
+else
+	clamav=true
+fi
+$clamav && echo "wys: will perform ClamAV scans."
+
+# check for gpg
+gnupg=false
+gpgpath="/usr/local/MacGPG2/bin/gpg"
+if ! [[ -f $gpgpath ]] ; then
+	gpgpath="/usr/local/MacGPG2/bin/gpg2"
+	if ! [[ -f $gpgpath ]] ; then
+		gpgcheck=$(gpg --version 2>/dev/null)
+		if [[ $gpgcheck != "" ]] ; then
+			gpgpath="gpg"
+			gnupg=true
 		else
-			clampath=""
+			gpgcheck=$(gpg2 --version 2>/dev/null)
+			if [[ $gpgcheck != "" ]] ; then
+				gpgpath="gpg2"
+				gnupg=true
+			else
+				gpgpath=""
+			fi
 		fi
 	else
-		clamav=true
+		gnupg=true
 	fi
+else
+	gnupg=true
 fi
-$clamav && echo "wys: configured for ClamAV scans."
+$gnupg && echo "wys: will validate GnuPG signatures."
 
 # read report setting
 wyslog=false
@@ -898,6 +895,58 @@ _sizes () {
 	hrbsize=$(echo "$bsize" | perl -wpe '1 while s/(\d+)(\d\d\d)/$1,$2/;')
 }
 
+# gpg validation
+_gpgval () {
+	if [[ -f "$filepath.asc" ]] ; then
+		gpgvloc="$filepath.asc"
+		gpgval=true
+	elif [[ -f "$filepath.asc.txt" ]] ; then
+		gpgvloc="$filepath.asc.txt"
+		gpgval=true
+	elif [[ -f "$filepath.sig" ]] ; then
+		gpgvloc="$filepath.sig"
+		gpgval=true
+	elif [[ -f "$filepath.sig.txt" ]] ; then
+		gpgvloc="$filepath.sig.txt"
+		gpgval=true
+	else
+		gpgval=false
+	fi
+	if $gpgval ; then
+		gpgver=$("$gpgpath" --verify "$gpgvloc" "$filepath" 2>&1)
+		gpgresult=$(echo "$gpgver" | grep "gpg: Good signature")
+		if [[ $gpgresult != "" ]] ; then
+			gpgstat=$(echo "$gpgresult" | awk -F"gpg: " '{print $2}')
+			gpgsig=$(echo "$gpgstat" | awk -F\" '{print $2}')
+			gpgtrust=$(echo "$gpgstat" | awk -F '[][]' '{print $2}')
+			gpgresult="good signature"
+			_notify "✅ GnuPG signature validated" "$filename"
+		else
+			gpgerror=$(echo "$gpgver" | grep "gpg: BAD signature")
+			if [[ $gpgerror != "" ]] ; then
+				_beep
+				gpgstat=$(echo "$gpgerror" | awk -F"gpg: " '{print $2}')
+				gpgresult="BAD SIGNATURE"
+				gpgsig=$(echo "$gpgstat" | awk -F\" '{print $2}')
+				gpgtrust=$(echo "$gpgstat" | awk -F '[][]' '{print $2}')
+
+				_notify "❌ GnuPG: bad signature!" "$filename"
+			else
+				_beep
+				gpgresult="not validated"
+				_notify "⚠️ GnuPG: not validated!" "$filename"
+			fi
+		fi
+		if [[ $gpgresult == "not validated" ]] ; then
+			echo -e "GnuPG:\t\t$gpgresult\n" >> "$tmploc"
+		else
+			echo -e "GnuPG:\t\t$gpgresult" >> "$tmploc"
+			echo -e "\t\t$gpgsig" >> "$tmploc"
+			echo -e "\t\ttrust: $gpgtrust\n" >> "$tmploc"
+		fi
+	fi
+}
+
 # parse pbpasted clipboard content for possible checksums (only md5, sha1, sha2)
 _cscn () {
 	case $1 in
@@ -917,57 +966,249 @@ _cscn () {
 
 # hashing function
 _hashes () {
-	md5hash=$(md5 -q "$1")
+	[[ $md5hash == "" ]] && md5hash=$(md5 -q "$1")
 	echo -e "hashes:\t\tmd5:\t$md5hash" >> "$tmploc"
-	sha1hash=$(shasum -a 1 "$1" | awk '{print $1}')
+	[[ $sha1hash == "" ]] && sha1hash=$(shasum -a 1 "$1" | awk '{print $1}')
 	echo -e "\t\tsha1:\t$sha1hash" >> "$tmploc"
-	sha2hash=$(shasum -a 256 "$1" | awk '{print $1}')
-	echo -e "\t\tsha256:\t$sha2hash\n" >> "$tmploc"
-	vthash="$sha2hash"
+	[[ $sha256hash == "" ]] && sha256hash=$(shasum -a 256 "$1" | awk '{print $1}')
+	echo -e "\t\tsha256:\t$sha256hash\n" >> "$tmploc"
+	[[ $vthash == "" ]] && vthash="$sha256hash"
 }
 
-# compare checksums
-_cscomp () {
+# find checksum files
+_csfind () {
+	read -d '' hdiglist <<"EOF"
+sha256
+sha256.txt
+sha1
+sha1.txt
+md5
+md5.txt
+sha512
+sha512.txt
+sha384
+sha384.txt
+sha224
+sha224.txt
+EOF
+	# first look for checksum files with the same filename
+	hfsfound=false
+	cshsingle=""
+	while read -r digestn
+	do
+		[[ -f "$filepath.$digestn" ]] && cshsingle="$cshsingle$filename.$digestn\n"
+	done < <(echo "$hdiglist")
+	cshsingle=$(echo -e "$cshsingle" | grep -v "^$")
+	[[ $cshsingle != "" ]] && hfsfound=true
+	# populate list of all other checksum files in target directory
+	hfmfound=false
+	cshlist=""
+	cd "$parentdir"
+	while read -r digestn
+	do
+		cshfname=$(find . -mindepth 1 -maxdepth 1 -type f -name "*.$digestn" | sed 's/^\.\///g')
+		[[ $cshfname != "" ]] && cshlist="$cshlist$cshfname\n"
+	done < <(echo "$hdiglist")
+	cd "$workingdir"
+	cshlist=$(echo -e "$cshlist" | grep -v "^$" | grep -vF "$filename")
+	[[ $cshlist != "" ]] && hfmfound=true
+}
+
+# compare checksums (checksum file)
+_cshcomp () {
 	compresult=false
-	if [[ $cstype == "md" ]] ; then
-		md5hash=$(md5 -q "$filepath")
-		if [[ $md5hash == $clipsum ]] ; then
-			echo -e "clipped hash:\tmd5:\t$md5hash" >> "$tmploc"
-			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
-			compresult=true
-			_notify "✅ MD5 verified" "$filename"
-		else
-			_beep
-			echo -e "clipped hash:\tmd5:\t$clipsum" >> "$tmploc"
-			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
-			_notify "❌ MD5 mismatch!" "Rehashing: $filename"
+	hfhfound=false
+	cstype=""
+	hasherrors=""
+	while read -r hashfile
+	do
+		hfhashes=$(cat "$parentdir/$hashfile" | grep -F "$filename" | awk '{print $1}')
+		if [[ $hfhashes != "" ]] ; then
+			hfhfound=true
+			dbreaker=false
+			while read -r hfhash
+			do
+				case ${#hfhash} in
+					( 32 ) cstype="md5" ;;
+					( 40 ) cstype="1" ;;
+					( 56 ) cstype="224" ;;
+					( 64 ) cstype="256" ;;
+					( 96 ) cstype="384" ;;
+					( 128 ) cstype="512" ;;
+				esac
+				if [[ $cstype == "md5" ]] ; then
+					[[ $md5hash == "" ]] && md5hash=$(md5 -q "$filepath")
+					localhash="$md5hash"
+					hnote="MD5"
+					thnote="md5"
+					if $vtaccess && [[ $vthash == "" ]] ; then
+						if [[ $sha256hash == "" ]] ; then
+							sha256hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+							vthash="$sha256hash"
+						else
+							vthash="$sha256hash"
+						fi
+					fi
+				else
+					hnote="SHA-$cstype"
+					thnote="sha$cstype"
+					if [[ $cstype == "256" ]] ; then
+						[[ $sha256hash == "" ]] && sha256hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+						localhash="$sha256hash"
+						vthash="$sha256hash"
+					else
+						if $vtaccess && [[ $vthash == "" ]]; then
+							if [[ $sha256hash == "" ]] ; then
+								sha256hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+								vthash="$sha256hash"
+							else
+								vthash="$sha256hash"
+							fi
+						fi
+						if [[ $cstype == "1" ]] ; then
+							[[ $sha1hash == "" ]] && sha1hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+							localhash="$sha1hash"
+						elif [[ $cstype == "512" ]] ; then
+							[[ $sha512hash == "" ]] && sha512hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+							localhash="$sha512hash"
+						elif [[ $cstype == "384" ]] ; then
+							[[ $sha384hash == "" ]] && sha384hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+							localhash="$sha384hash"
+						elif [[ $cstype == "224" ]] ; then
+							[[ $sha224hash == "" ]] && sha224hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+							localhash="$sha224hash"
+						fi
+					fi
+				fi
+				if [[ $hfhash == $localhash ]] ; then
+					hfherror=false
+					dbreaker=true
+					break
+				else
+					hasherrors="$hasherrors$thnote $hnote\n"
+					hfherror=true
+				fi
+			done < <(echo "$hfhashes")
+			$dbreaker && break
 		fi
-		vthash=$(shasum -a 256 "$filepath" | awk '{print $1}')
-	else
-		shahash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
-		if [[ $shahash == $clipsum ]] ; then
-			echo -e "clipped hash:\tsha$cstype:\t$shahash" >> "$tmploc"
+	done < <(echo -e "$cshsingle\n$cshlist" | grep -v "^$")
+	if $hfhfound ; then
+		if ! $hfherror ; then
+			echo -e "checksum file:\t$thnote:\t$localhash" >> "$tmploc"
 			echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
+			_notify "✅ $hnote verified" "$filename"
 			compresult=true
-			_notify "✅ SHA-$cstype verified" "$filename"
 		else
-			_beep
-			echo -e "clipped hash:\tsha$cstype:\t$clipsum" >> "$tmploc"
-			echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
-			_notify "❌ SHA-$cstype mismatch!" "Rehashing: $filename"
-		fi
-		if $compresult ; then
-			if [[ $cstype != "256" ]] ; then
-				vthash=$(shasum -a 256 "$filepath" | awk '{print $1}')
-			else
-				vthash="$shahash"
+			merror=false
+			hasherrors=$(echo -e "$hasherrors" | grep -v "^$")
+			if [ $(echo "$hasherrors" | wc -l | xargs) -gt 1 ] ; then
+				merror=true
+				hasherrors=$(echo "$hasherrors" | awk '!seen[$0]++')
+				if [[ $(echo "$hasherrors" | wc -l | xargs) == "1" ]] ; then
+					herrl=$(echo "$hasherrors" | awk '{print $1}')
+					merrorl="multiple $herrl hashes"
+					herrn=$(echo "$hasherrors" | awk '{print $2}')
+					merrorn="Multiple $herrn"
+				else
+					merrorl="multiple hashes"
+					merrorn="Multiple hash"
+				fi
 			fi
+			_beep
+			if $cliperror ; then
+				_notify "❌ $clipnote mismatch!" "Rehashing: $filename"
+			fi
+			if ! $merror ; then
+				_notify "❌ $hnote mismatch!" "Rehashing: $filename"
+				echo -e "checksum file:\t$thnote:\t$hfhash" >> "$tmploc"
+				echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
+			else
+				_notify "❌ $merrorn mismatches!" "Rehashing: $filename"
+				echo -e "checksum file:\t$merrorl" >> "$tmploc"
+				echo -e "\t\tstatus:\tMISMATCHES" >> "$tmploc"
+			fi
+		fi
+	else
+		if $cliperror ; then
+			_beep
+			_notify "❌ $clipnote mismatch!" "Rehashing: $filename"
 		fi
 	fi
 	if ! $compresult ; then # comparison with no results
 		_hashes "$filepath"
 	fi
+}
+
+# compare checksums (clipboard)
+_cscomp () {
+	compresult=false
+	if [[ $cstype == "md" ]] ; then
+		hnote="MD5"
+		thnote="md5"
+		[[ $md5hash == "" ]] && md5hash=$(md5 -q "$filepath")
+		localhash="$md5hash"
+		if $vtaccess && [[ $vthash == "" ]] ; then
+			if [[ $sha256hash == "" ]] ; then
+				sha256hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+				vthash="$sha256hash"
+			else
+				vthash="$sha256hash"
+			fi
+		fi
+	else
+		hnote="SHA-$cstype"
+		thnote="sha$cstype"
+		if [[ $cstype == "256" ]] ; then
+			[[ $sha256hash == "" ]] && sha256hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+			localhash="$sha256hash"
+			vthash="$sha256hash"
+		else
+			if $vtaccess && [[ $vthash == "" ]] ; then
+				if [[ $sha256hash == "" ]] ; then
+					sha256hash=$(shasum -a 256 "$filepath" | awk '{print $1}')
+					vthash="$sha256hash"
+				else
+					vthash="$sha256hash"
+				fi
+			fi
+			if [[ $cstype == "1" ]] ; then
+				[[ $sha1hash == "" ]] && sha1hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+				localhash="$sha1hash"
+			elif [[ $cstype == "512" ]] ; then
+				[[ $sha512hash == "" ]] && sha512hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+				localhash="$sha512hash"
+			elif [[ $cstype == "384" ]] ; then
+				[[ $sha384hash == "" ]] && sha384hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+				localhash="$sha384hash"
+			elif [[ $cstype == "224" ]] ; then
+				[[ $sha224hash == "" ]] && sha224hash=$(shasum -a "$cstype" "$filepath" | awk '{print $1}')
+				localhash="$sha224hash"
+			fi
+		fi
+	fi
+	if [[ $clipsum == $localhash ]] ; then
+		echo -e "clipped hash:\t$thnote:\t$localhash" >> "$tmploc"
+		echo -e "\t\tstatus:\tverified\n" >> "$tmploc"
+		_notify "✅ $hnote verified" "$filename"
+		compresult=true
+	else
+		if ! $hfsfound && ! $hfmfound ; then
+			_beep
+			_notify "❌ $hnote mismatch!" "Rehashing: $filename"
+		fi
+		echo -e "clipped hash:\t$thnote:\t$clipsum" >> "$tmploc"
+		echo -e "\t\tstatus:\tMISMATCH" >> "$tmploc"
+	fi
 	echo "" | pbcopy
+	if ! $compresult ; then # comparison with no results
+		if $hfsfound || $hfmfound ; then
+			cliperror=true
+			clipnote="$hnote"
+			_cshcomp
+		else
+			_hashes "$filepath"
+		fi
+	fi
 }
 
 # ClamAV scan function
@@ -1128,11 +1369,22 @@ workingdir="$PWD"
 for filepath in "$@"
 do
 
+sha256hash=""
+vthash=""
+localhash=""
+sha1hash=""
+md5hash=""
+sha512hash=""
+sha384hash=""
+sha224hash=""
+
 filepath=$(abspath "$filepath")
 
 scandate=$(date)
 
 shortpath="${filepath/#$HOME/~}"
+
+parentdir=$(dirname "$filepath")
 
 filename=$(basename "$filepath")
 shortname="${filename%.*}"
@@ -1211,6 +1463,7 @@ _notify "Scanning..." "$filename"
 # initial stuff
 pkgu=false
 clipped=false
+cliperror=false
 smany=false ### DELETE FOR DEEP SCAN
 umany=false
 idmatch=false
@@ -1508,7 +1761,11 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				fi
 				hdiformat=$(echo "$hdinfo" | awk -F": " '/^Format:/{print substr($0, index($0,$2))}' | xargs)
 				hdidescr=$(echo "$hdinfo" | awk -F": " '/^Format Description:/{print substr($0, index($0,$2))}' | xargs)
-				echo -e "\t\t$hdiformat: $hdidescr\n" >> "$tmploc"
+				hdifs=$(echo "$hdinfo" | grep "Name: disk image" | awk -F"(" '{print $2}' | awk -F: '{print $1}' | xargs)
+				if [[ $hdifs == "" ]] ; then
+					hdifs=$(echo "$hdinfo" | grep "partition-hint: " | grep "Apple_" | grep -v "Apple_Free" | awk -F": " '{print $2}' | xargs)
+				fi
+				echo -e "\t\t$hdiformat: $hdidescr $hdifs\n" >> "$tmploc"
 			fi
 		else
 			echo -e "hdiutil:\tENCRYPTED: cannot scan\n" >> "$tmploc"
@@ -1552,13 +1809,24 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			execsub=$(echo "$executable" | sed "s:^$filepath:\.:")
 			echo -e "executable:\t$execsub" >> "$tmploc"
 			_hashes "$executable"
-		else # single file: can check against hash stored in clipboard
-			if ! $clipped ; then
-				_hashes "$filepath"
-			else
+		else # single file: hash comparsions/calculations
+			# look for checksum files
+			_csfind
+			if ! $clipped ; then # no clipboard checksum
+				if $hfmfound || $hfsfound ; then # found & will parse checksum files
+					_cshcomp
+				else # found no checksum files
+					_hashes "$filepath"
+				fi
+			else # clipboard hash check
 				_cscomp
 			fi
 		fi
+	fi
+
+	# gpg scan
+	if $gnupg && [[ $filetype != "directory" ]] ; then
+		_gpgval
 	fi
 
 	# check hash at VirusTotal
@@ -1796,6 +2064,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			signature=$(echo "$csign" | grep "^Signature=" | awk -F= '{print $2}')
 			[[ $signature == "" ]] && signature="n/a"
 			[[ $csid == "" ]] && csid="n/a"
+			leafcert="$signature"
 			teamid=$(echo "$csign" | grep "TeamIdentifier=" | awk -F= '{print $2}')
 			echo -e "sign auth:\t$signature ($csid)" >> "$tmploc"
 		else
@@ -1887,10 +2156,12 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 					xfunsigned="$xfunsigned\n.$execfile"
 				else
 					xfleafcert=$(echo "$xfcsign" | grep "^Authority=" | awk -F= '{print $2}' | head -1)
-					if [[ $xfleafcert == "" ]] ; then
+					if [[ $xfleafcert == "" ]] ; then # account for adhoc signatures
 						xfleafcert=$(echo "$xfcsign" | grep "^Signature=" | awk -F= '{print $2}' | head -1)
 						[[ $xfleafcert == "" ]] && xfleafcert="n/a"
-						xfothersign="$xfothersign\n.$execfile: $xfleafcert"
+						if [[ $xfleafcert != $leafcert ]] ; then
+							xfothersign="$xfothersign\n.$execfile: $xfleafcert"
+						fi
 					else
 						xfteamid=$(echo "$xfcsign" | grep "^TeamIdentifier=" | awk -F= '{print $2}')
 						if [[ $xfleafcert != $leafcert ]] && [[ $xfteamid != $teamid ]] ; then
@@ -1958,11 +2229,19 @@ else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 	fi
 
 	# calculate hashes/checksums
-	if ! $clipped ; then # no clipboard checksum detected, i.e. simple hashing
-		_hashes "$filepath"
-	else # clipboard hash detected and hash compare
+	_csfind # look for checksum files
+	if ! $clipped ; then # no clipboard checksum
+		if $hfmfound || $hfsfound ; then # found & will parse checksum files
+			_cshcomp
+		else # found no checksum files
+			_hashes "$filepath"
+		fi
+	else # clipboard hash detected
 		_cscomp
 	fi
+
+	# gpg scan
+	$gnupg && _gpgval
 
 	# check signature with pkgutil standard tool
 	pkginfo=$(pkgutil --check-signature "$filepath")
