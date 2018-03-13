@@ -22,7 +22,7 @@ The original **WhatsYourSign** is described as follows:
 * verifies a signed bundle for modified, added or missing files with `codesign`,
 * compares a file hash (checksum) stored in the clipboard with the hash calculated for the local file (regular files only),
 * compares a file hash (checksum) stored in a checksum file, e.g. `*.sha256`, with the hash calculated for the local file (regular files only),
-* validates a regular file against its **GnuPG** signatures contained in `.asc` or `.sig` files (optional),
+* validates a regular file against its **GnuPG** signature contained in `.asc` or `.sig` files (optional),
 * accounts for macOS filename corruptions after download, e.g. `*.sha256.txt` or `*.asc.txt`,
 * checks the calculated hash (file or executable) against the VirusTotal database for malware detection (optional),
 * scans for malware using `clamscan` installed as part of **ClamXAV** or **ClamAV** (optional),
