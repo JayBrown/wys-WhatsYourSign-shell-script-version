@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# wys v1.1 beta 14
+# wys v1.1 beta 15
 #
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
@@ -43,7 +43,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 14"
+bversion=" beta 15"
 
 # command line options
 silentoverride=false
@@ -1761,9 +1761,15 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 				fi
 				hdiformat=$(echo "$hdinfo" | awk -F": " '/^Format:/{print substr($0, index($0,$2))}' | xargs)
 				hdidescr=$(echo "$hdinfo" | awk -F": " '/^Format Description:/{print substr($0, index($0,$2))}' | xargs)
-				hdifs=$(echo "$hdinfo" | grep "Name: disk image" | awk -F"(" '{print $2}' | awk -F: '{print $1}' | xargs)
+				hdifs=$(echo "$hdinfo" | grep -A1 "partition-filesystems:" | tail -1 | xargs | awk -F: '{print $1}')
 				if [[ $hdifs == "" ]] ; then
-					hdifs=$(echo "$hdinfo" | grep "partition-hint: " | grep "Apple_" | grep -v "Apple_Free" | awk -F": " '{print $2}' | xargs)
+					hdifs=$(echo "$hdinfo" | grep "Name: disk image" | awk -F"(" '{print $2}' | awk -F: '{print $1}' | xargs)
+					if [[ $hdifs == "" ]] ; then
+						hdifs=$(echo "$hdinfo" | grep "Name: Mac_OS_X" | awk -F"(" '{print $2}' | awk -F: '{print $1}' | xargs)
+						if [[ $hdifs == "" ]] ; then
+							hdifs=$(echo "$hdinfo" | grep "partition-hint: " | grep "Apple_" | grep -v "Apple_Free" | grep -v "Apple_Driver" | grep -v "Apple_partition" | awk -F": " '{print $2}' | xargs)
+						fi
+					fi
 				fi
 				echo -e "\t\t$hdiformat: $hdidescr $hdifs\n" >> "$tmploc"
 			fi
