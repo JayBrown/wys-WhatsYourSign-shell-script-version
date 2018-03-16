@@ -1,11 +1,17 @@
 #!/bin/bash
 
-# wys v1.1 beta 15
+# wys
+# WhatsYourSign shell script version
 #
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
 #
-# GitHub: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
+# v1.1 beta 16
+# Copyright (c) 2018 Joss Brown (pseud.)
+# license (wys): MIT+
+# info: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
+#
+# WhatsYourSign name & icon: (c) by Patrick Wardle ; Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
 
 # check for single user
 scrname=$(basename $0)
@@ -43,7 +49,7 @@ shopt -s extglob
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
 version="1.1"
-bversion=" beta 15"
+bversion=" beta 16"
 
 # command line options
 silentoverride=false
@@ -873,6 +879,11 @@ fi
 # beep function
 _beep () {
 	osascript -e "beep"
+}
+
+# hexer function
+_hxr () {
+	echo -n "${1}" | xxd -p | sed -e 's/\(..\)/\\x\1/g'
 }
 
 # round function
@@ -1898,7 +1909,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	msigerror=false
 	csreport=false
 	if ! $unsigned ; then
-		csverify_raw=$(codesign --verify --verbose=4 --deep "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:")
+		csverify_raw=$(codesign --verify --verbose=4 --deep "$filepath" 2>&1 | grep -v "^In architecture:" | grep -v "^--prepared:" | grep -v "^In subcomponent: ")
 		csverify_raw=$(echo "$csverify_raw" | grep -v "^--validated:" | grep -v "^$")
 		csverify_all=$(echo "$csverify_raw" | grep "^/" | grep -F "$filepath: " | awk -F": " '{print $2}')
 		# verification digest
@@ -2139,7 +2150,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	[[ $fmodded != "" ]] && echo -e "modified regular files:\n$fmodded" >> "$tmploc"
 	[[ $dmodded != "" ]] && echo -e "modified directories:\n$dmodded" >> "$tmploc"
 	[[ $omodded != "" ]] && echo -e "modified files (other):\n$omodded" >> "$tmploc"
-	[[ $fdmissing != "" ]] && echo -e "missing files:\n$dadded" >> "$tmploc"
+	[[ $fdmissing != "" ]] && echo -e "missing files:\n$fdmissing\n" >> "$tmploc"
 
 	# deal with executable files ### IMPROVE AS DEEP-SCAN (v1.1)
 	if [[ $filetype == "directory" ]] ; then
