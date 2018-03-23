@@ -6,7 +6,7 @@
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
 #
-# v1.1 beta 16
+# v1.1 beta 17
 # Copyright (c) 2018 Joss Brown (pseud.)
 # license (wys): MIT+
 # info: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
@@ -1462,7 +1462,7 @@ fi
 
 # precheck for "Folder"
 mdlsall=$(mdls "$filepath" 2>/dev/null)
-itemtype=$(echo "$mdlsall" | awk -F"= " '/kMDItemKind/{print $2}' | sed 's/^"\(.*\)"$/\1/')
+itemtype=$(echo "$mdlsall" | awk -F"= " '/^kMDItemKind/{print $2}' | sed 's/^"\(.*\)"$/\1/')
 if [[ $itemtype =~ ^(Folder| Folder)$ ]] ; then
 	_beep
 	_notify "❌ Plain folder: aborting scan…" "$filename"
@@ -1532,13 +1532,13 @@ if [[ $itemtype == "" ]] ; then
 	else # mdls (mostly?) fails on mounted read-only volumes & new files, i.e read from bundle plist
 		while read -r iplistloc
 		do
-			pclass=$(defaults read "$filepath/$iplistloc" NSPrincipalClass 2>/dev/null)
+			pclass=$(defaults read "$filepath/$iplistloc" NSPrincipalClass 2>/dev/null | awk '!seen[$0]++')
 			[[ $pclass != "" ]] && break
 		done < <(echo -e "$iplistlocs")
 		if [[ $pclass == "" ]] ; then
 			while read -r iplistloc
 			do
-				ptype=$(defaults read "$filepath/$iplistloc" CFBundlePackageType 2>/dev/null)
+				ptype=$(defaults read "$filepath/$iplistloc" CFBundlePackageType 2>/dev/null | awk '!seen[$0]++')
 				[[ $ptype != "" ]] && break
 			done < <(echo -e "$iplistlocs")
 			if [[ $ptype == "" ]] ; then
