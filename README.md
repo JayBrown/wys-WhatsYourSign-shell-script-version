@@ -88,6 +88,7 @@ You can add the **wys** shell script to an **Automator** service/workflow, which
   * if a malware is redistributed with a different code signature,
   * if the malware code itself has been changed, or
   * if only the zip or DMG used for distribution has been registered as malware, not the app itself.
+* The script uses `qlmanage`, which is part of **QuickLook**, to show the scan logs, and at least one QuickLook plugin is known to interfere with the accurate display of log files on macOS, namely **[QLColorCode](https://github.com/anthonygelibert/QLColorCode)**. If, after disabling QLColorCode, **wys** still doesn't produce a correct QuickLook preview, run `wys` in your terminal and look for any errors in the `qlmanage` output to narrow it down.
 
 ## Scan options
 

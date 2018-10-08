@@ -6,7 +6,7 @@
 # extended shell script variant of Patrick Wardle's "WhatsYourSign" Finder extension (objective-see.com)
 # gain WhatsYourSign functionality (and more) in other file managers than macOS Finder
 #
-# v1.1 beta 17
+# v1.2 beta 1
 # Copyright (c) 2018 Joss Brown (pseud.)
 # license (wys): MIT+
 # info: https://github.com/JayBrown/wys-WhatsYourSign-shell-script-version
@@ -48,8 +48,8 @@ shopt -s extglob
 
 cacheloc="$HOME/.wys"
 configloc="$cacheloc/config"
-version="1.1"
-bversion=" beta 16"
+version="1.2"
+bversion=" beta 1"
 
 # command line options
 silentoverride=false
@@ -733,14 +733,19 @@ configfull=$(cat "$configloc")
 
 # check for clamscan
 clamav=false
-clampath="/usr/local/clamXav/bin/clamscan"
+clampath="/usr/local/ClamXAV3/bin/clamscan"
 if ! [[ -f $clampath ]] ; then
-	clamcheck=$(clamscan --version 2>/dev/null)
-	if [[ $clamcheck != "" ]] ; then
-		clampath="clamscan"
-		clamav=true
+	clampath="/usr/local/clamXav/bin/clamscan"
+	if ! [[ -f $clampath ]] ; then
+		clamcheck=$(clamscan --version 2>/dev/null)
+		if [[ $clamcheck != "" ]] ; then
+			clampath="clamscan"
+			clamav=true
+		else
+			clampath=""
+		fi
 	else
-		clampath=""
+		clamav=true
 	fi
 else
 	clamav=true
@@ -846,9 +851,9 @@ EOT
 # look for terminal-notifier
 tn=$(which terminal-notifier 2>/dev/null)
 if [[ "$tn" == "" ]] || [[ "$tn" == *"not found" ]] ; then
-	tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+	tn_loc=$(mdfind -onlyin / "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
 	if [[ "$tn_loc" == "" ]] ; then
-		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+		tn_loc=$(mdfind -onlyin / "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
 		if [[ "$tn_loc" == "" ]] ; then
 			tn_status="osa"
 		else
@@ -862,9 +867,9 @@ else
 	if (( $(echo "$tn_vers >= 1.8" | bc -l) )) && (( $(echo "$tn_vers < 2.0" | bc -l) )) ; then
 		tn_status="tn-cli"
 	else
-		tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+		tn_loc=$(mdfind -onlyin / "kMDItemCFBundleIdentifier == 'fr.julienxx.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
 		if [[ "$tn_loc" == "" ]] ; then
-			tn_loc=$(mdfind "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
+			tn_loc=$(mdfind -onlyin / "kMDItemCFBundleIdentifier == 'nl.superalloy.oss.terminal-notifier'" 2>/dev/null | awk 'NR==1')
 			if [[ "$tn_loc" == "" ]] ; then
 				tn_status="osa"
 			else
@@ -1471,6 +1476,8 @@ fi
 
 _notify "Scanning..." "$filename"
 
+touch "$filepath" 2>/dev/null
+
 # initial stuff
 pkgu=false
 clipped=false
@@ -1484,11 +1491,12 @@ csid=""
 skid=""
 oldskid=""
 
-tmploc="/tmp/$filename.log"
-ptmploc="/tmp/$filename.plist"
-stmploc="/tmp/$filename-os.log" ### DELETE FOR DEEP SCAN
-utmploc="/tmp/$filename-us.log"
-rm -f "$tmploc" "$ptmploc" "$stmploc" "$utmploc" 2>/dev/null
+posixtime=$(date +%s)
+
+tmploc="/tmp/$filename-$posixtime.log"
+ptmploc="/tmp/$filename-$posixtime.plist"
+stmploc="/tmp/$filename-$posixtime-os.log" ### DELETE FOR DEEP SCAN
+utmploc="/tmp/$filename-$posixtime-us.log"
 
 [[ $extension =~ ^(pkg|mpkg|xip|xar|PKG|MPKG|XIP|XAR)$ ]] && pkgu=true
 
@@ -1497,7 +1505,7 @@ echo "$filename" > "$tmploc"
 echo -e "$shortpath\n" >> "$tmploc"
 
 # determine file type (file)
-filetype=$(file "$filepath" | awk -F": " '{print $2}')
+filetype=$(file "$filepath" | awk -F": " '{print substr($0, index($0,$2))}')
 if [[ $filetype != "directory" ]] ; then
 
 	# paste clipboard and check for hash
@@ -1552,6 +1560,25 @@ if [[ $itemtype == "" ]] ; then
 	fi
 else
 	echo -e "item type:\t$itemtype\n" >> "$tmploc"
+fi
+
+# read version & build numbers
+if [[ $filetype == "directory" ]] ; then
+	version=""
+	while read -r iplistloc
+	do
+		version=$(defaults read "$filepath/$iplistloc" CFBundleShortVersionString 2>/dev/null | awk '!seen[$0]++' | xargs)
+		[[ $version != "" ]] && break
+	done < <(echo -e "$iplistlocs")
+	! [[ $version ]] && version="n/a"
+	build=""
+	while read -r iplistloc
+	do
+		build=$(defaults read "$filepath/$iplistloc" CFBundleVersion 2>/dev/null | awk '!seen[$0]++' | xargs)
+		[[ $build != "" ]] && break
+	done < <(echo -e "$iplistlocs")
+	! [[ $build ]] && build="n/a"
+	echo -e "version:\t$version ($build)\n" >> "$tmploc"
 fi
 
 if ! $pkgu ; then # apps & other bundles plus DMGs
@@ -1790,7 +1817,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 	fi
 
 	# print download sources & quarantine check
-	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
+	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++' | grep -v "^//")
 	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed -e 's/;/ /g' -e 's/|/ /g')
 	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
 		count=1
@@ -1895,7 +1922,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 			else
 				echo -e "identifiers:\tMISMATCH" >> "$tmploc"
 				echo -e "bundle:\t\t$cfbid" >> "$tmploc"
-				echo -e "signature:\t\t$csid\n" >> "$tmploc"
+				echo -e "signature:\t$csid\n" >> "$tmploc"
 				_beep
 				_notify "⚠️ ID mismatch!" "$filename"
 			fi
@@ -2222,7 +2249,7 @@ if ! $pkgu ; then # apps & other bundles plus DMGs
 
 else # pkg, mpkg, xip, xar (maybe) & others like zip, 7zip, rar etc.
 
-	# print download sources & quarantine check
+	# print download sources & quarantine check ### check for mail attachment downloads: //
 	dlflist=$(xattr -p com.apple.metadata:kMDItemWhereFroms "$filepath" 2>/dev/null | xxd -r -p | plutil -p - | grep -v "^\[" | grep -v "^\]" | awk -F\" '{print $2}' | awk -F/ '{print $1"//"$3}' | awk '!seen[$0]++')
 	qxattr=$(xattr -p com.apple.quarantine "$filepath" 2>/dev/null | sed -e 's/;/ /g' -e 's/|/ /g')
 	if [[ $dlflist != "" ]] && [[ $dlflist != "//" ]] ; then
